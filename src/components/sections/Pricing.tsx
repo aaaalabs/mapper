@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { PricingCalculator } from '../PricingCalculator';
-import { PricingSlider } from '../ui/PricingSlider';
 import { StripeModal } from '../ui/StripeModal';
 import { generateStandaloneHtml, downloadHtmlFile } from '../../utils/exportMap';
 
 interface PricingProps {
-  onDownload?: () => void;
-  hasMap?: boolean;
   mapData?: {
     members: any[];
     center: [number, number];
@@ -14,7 +11,7 @@ interface PricingProps {
   };
 }
 
-export function Pricing({ onDownload, hasMap = false, mapData }: PricingProps) {
+export function Pricing({ mapData }: PricingProps) {
   const [showStripeModal, setShowStripeModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'free' | 'paid'>('free');
 
@@ -42,7 +39,18 @@ export function Pricing({ onDownload, hasMap = false, mapData }: PricingProps) {
         <h2 className="text-3xl font-bold text-center mb-12">Simple Pricing</h2>
         
 
-        <PricingCalculator />
+        <PricingCalculator onPlanChange={handlePlanChange} />
+
+        <p className="mt-4 text-center">
+          Selected Plan: <strong>{selectedPlan}</strong>
+        </p>
+
+        <button
+          onClick={handleDownload}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+        >
+          Download Map
+        </button>
       </div>
 
       <StripeModal 

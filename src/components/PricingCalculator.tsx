@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { CreditCard, Users, Check } from 'lucide-react';
 import { Button } from './ui/Button';
@@ -45,7 +46,11 @@ const pricingTiers: PricingTier[] = [
   }
 ];
 
-export function PricingCalculator() {
+interface PricingCalculatorProps {
+  onPlanChange: (plan: 'free' | 'paid') => void;
+}
+
+export function PricingCalculator({ onPlanChange }: PricingCalculatorProps) {
   const [memberCount, setMemberCount] = useState(50);
   const [activeTier, setActiveTier] = useState<PricingTier>(pricingTiers[0]);
 
