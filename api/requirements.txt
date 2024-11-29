@@ -1,0 +1,6 @@
+folium==0.15.1
+flask==3.0.2
+flask-cors==4.0.0
+pandas==2.2.1
+geopy==2.4.1
+werkzeug==3.0.1
