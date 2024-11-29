@@ -41,12 +41,6 @@ export function Pricing({ onDownload, hasMap = false, mapData }: PricingProps) {
       <div className="max-w-7xl mx-auto px-4">
         <h2 className="text-3xl font-bold text-center mb-12">Simple Pricing</h2>
         
-        <div className="max-w-xl mx-auto mb-16">
-          <PricingSlider 
-            onPlanChange={handlePlanChange}
-            className="mb-12"
-          />
-        </div>
 
         <PricingCalculator />
       </div>

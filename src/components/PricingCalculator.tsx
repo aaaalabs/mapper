@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CreditCard, Users, Check, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CreditCard, Users, Check } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '../utils/cn';
 
@@ -7,46 +7,40 @@ interface PricingTier {
   name: string;
   range: [number, number];
   price: number;
+  pricePerMember: number;
   features: string[];
 }
 
 const pricingTiers: PricingTier[] = [
   {
-    name: 'Basic',
+    name: 'Freemium',
     range: [1, 50],
-    price: 9.90,
+    price: 0,
+    pricePerMember: 0,
     features: [
       'Interactive community map',
       'Basic member profiles',
       'Location clustering',
       'CSV data import',
-      'HTML export'
+      'Up to 50 members'
     ]
   },
   {
-    name: 'Professional',
-    range: [51, 250],
-    price: 14.90,
+    name: 'Premium',
+    range: [51, 500],
+    price: 9.90,
+    pricePerMember: 0,
     features: [
-      'All Basic features',
+      'All Freemium features',
+      'Unlimited members',
       'Member photos',
       'Advanced clustering',
       'Search functionality',
       'Custom branding',
-      'Priority support'
-    ]
-  },
-  {
-    name: 'Enterprise',
-    range: [251, 500],
-    price: 19.90,
-    features: [
-      'All Professional features',
+      'Priority support',
       'API access',
       'Multiple maps',
-      'Advanced analytics',
-      'Custom integrations',
-      'Dedicated support'
+      'Advanced analytics'
     ]
   }
 ];
@@ -54,7 +48,6 @@ const pricingTiers: PricingTier[] = [
 export function PricingCalculator() {
   const [memberCount, setMemberCount] = useState(50);
   const [activeTier, setActiveTier] = useState<PricingTier>(pricingTiers[0]);
-  const [showTooltip, setShowTooltip] = useState('');
 
   useEffect(() => {
     const newTier = pricingTiers.find(
@@ -68,6 +61,39 @@ export function PricingCalculator() {
     const range = max - min;
     const progress = ((memberCount - min) / range) * 100;
     return Math.min(Math.max(progress, 0), 100);
+  };
+
+  const calculateTierPrice = (tier: PricingTier) => {
+    if (tier.name === 'Freemium') {
+      return tier.price; // Always 0 for Freemium
+    } else if (tier.name === 'Premium') {
+      // Premium tier pricing logic based on memberCount
+      if (memberCount <= 100) return 9.90;
+      if (memberCount <= 250) return 14.90;
+      return 19.90;
+    }
+    return 0; // Default fallback
+  };
+
+  const sliderStyle = {
+    WebkitAppearance: 'none' as const,
+    background: `linear-gradient(to right, 
+      var(--accent) ${calculateProgress()}%, 
+      var(--muted) ${calculateProgress()}%
+    )`,
+    height: '8px',
+    borderRadius: '4px',
+    '::-webkit-slider-thumb': {
+      WebkitAppearance: 'none' as const,
+      appearance: 'none',
+      width: '20px',
+      height: '20px',
+      backgroundColor: 'var(--accent)',
+      borderRadius: '50%',
+      cursor: 'pointer',
+      border: '2px solid white',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }
   };
 
   return (
@@ -101,20 +127,18 @@ export function PricingCalculator() {
             max="500"
             value={memberCount}
             onChange={(e) => setMemberCount(parseInt(e.target.value))}
-            className="w-full h-2 bg-background rounded-full appearance-none cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, var(--color-accent) ${calculateProgress()}%, var(--color-background) ${calculateProgress()}%)`
-            }}
+            className="w-full appearance-none cursor-pointer"
+            style={sliderStyle}
           />
 
           <div className="flex justify-between text-sm text-secondary mt-1">
             <span>1</span>
-            <span>250</span>
+            <span>50</span>
             <span>500+</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {pricingTiers.map((tier) => (
             <div
               key={tier.name}
@@ -129,7 +153,7 @@ export function PricingCalculator() {
                 {tier.name}
               </h4>
               <div className="text-2xl font-bold text-primary mb-4">
-                ${tier.price}
+                ${calculateTierPrice(tier).toFixed(2)}
                 <span className="text-sm font-normal text-secondary">/month</span>
               </div>
               <ul className="space-y-2">
