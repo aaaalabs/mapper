@@ -1,12 +1,16 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
+import { CommunityMap } from './CommunityMap';
+import { CommunityMember } from '../types';
 
 interface MapProps {
   isLoading?: boolean;
   mapHtml?: string;
+  members?: CommunityMember[];
+  center?: [number, number];
 }
 
-export function Map({ isLoading, mapHtml }: MapProps) {
+export function Map({ isLoading, mapHtml, members, center }: MapProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
@@ -18,7 +22,7 @@ export function Map({ isLoading, mapHtml }: MapProps) {
     );
   }
 
-  if (!mapHtml) {
+  if (!mapHtml && (!members || !center)) {
     return (
       <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
         <div className="text-center">
@@ -29,10 +33,28 @@ export function Map({ isLoading, mapHtml }: MapProps) {
     );
   }
 
+  if (members && center) {
+    return (
+      <div className="h-96 rounded-lg overflow-hidden border border-gray-200 bg-white">
+        <CommunityMap
+          members={members}
+          center={center}
+          options={{
+            markerStyle: 'pins',
+            enableSearch: false,
+            enableFullscreen: true,
+            enableSharing: false,
+            enableClustering: true
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div 
       className="h-96 rounded-lg overflow-hidden border border-gray-200 bg-white"
-      dangerouslySetInnerHTML={{ __html: mapHtml }}
+      dangerouslySetInnerHTML={{ __html: mapHtml || '' }}
     />
   );
 }

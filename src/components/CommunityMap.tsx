@@ -4,15 +4,48 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { CommunityMember } from '../types';
-import { MapOptions } from './MapOptions';
+import { MapStyle } from '../types/map';
+import { createMapTileLayer, getPopupContent } from '../utils/mapStyles';
 
 interface CommunityMapProps {
   members: CommunityMember[];
   center: [number, number];
-  options: MapOptions;
+  options: {
+    markerStyle: 'pins' | 'photos';
+    enableSearch: boolean;
+    enableFullscreen: boolean;
+    enableSharing: boolean;
+    enableClustering: boolean;
+  };
+  mapStyle?: MapStyle;
+  customOptions?: {
+    heatmap?: boolean;
+    animation?: boolean;
+    darkMode?: boolean;
+    dynamicSize?: boolean;
+  };
+  onError?: (error: string) => void;
 }
 
-export function CommunityMap({ members, center, options }: CommunityMapProps) {
+export function CommunityMap({ 
+  members, 
+  center, 
+  options,
+  mapStyle = {
+    id: 'standard',
+    name: 'Standard',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+    popupStyle: {
+      background: '#FFFFFF',
+      text: '#1D3640',
+      border: '#E2E8F0',
+      shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    }
+  },
+  customOptions,
+  onError 
+}: CommunityMapProps) {
   useEffect(() => {
     // Fix Leaflet default icon path issues
     delete (Icon.Default.prototype as any)._getIconUrl;
@@ -36,77 +69,48 @@ export function CommunityMap({ members, center, options }: CommunityMapProps) {
     return new Icon.Default();
   };
 
-  const markers = members.map((member, index) => (
-    <Marker
-      key={`${member.name}-${index}`}
-      position={[parseFloat(member.latitude), parseFloat(member.longitude)]}
-      icon={createIcon(member)}
-    >
-      <Popup>
-        <div className="text-center p-2">
-          {options.markerStyle === 'photos' && member.image && (
-            <img
-              src={member.image}
-              alt={member.name}
-              className="w-24 h-24 rounded-full mx-auto mb-2"
-            />
-          )}
-          <h3 className="font-semibold text-primary">{member.name}</h3>
-          {member.title && (
-            <p className="text-secondary text-sm">{member.title}</p>
-          )}
-          <p className="text-secondary text-sm">{member.location}</p>
-          {options.enableSharing && (
-            <div className="mt-2 space-x-2">
-              {member.linkedin && (
-                <a
-                  href={member.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:text-accent-alt"
-                >
-                  LinkedIn
-                </a>
-              )}
-              {member.website && (
-                <a
-                  href={member.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:text-accent-alt"
-                >
-                  Website
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-      </Popup>
-    </Marker>
-  ));
+  const tileLayer = createMapTileLayer(mapStyle);
 
   return (
     <MapContainer
       center={center}
       zoom={2}
-      className="h-[600px] w-full rounded-lg shadow-soft"
+      className="h-full w-full rounded-lg shadow-soft"
       scrollWheelZoom={true}
+      style={{ minHeight: '400px' }}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={tileLayer.options.attribution}
+        url={tileLayer.url}
+        {...tileLayer.options}
       />
+      
       {options.enableClustering ? (
-        <MarkerClusterGroup
-          chunkedLoading
-          maxClusterRadius={50}
-          spiderfyOnMaxZoom={true}
-          showCoverageOnHover={false}
-        >
-          {markers}
+        <MarkerClusterGroup>
+          {members.map((member, index) => (
+            <Marker
+              key={`${member.name}-${index}`}
+              position={[parseFloat(member.latitude), parseFloat(member.longitude)]}
+              icon={createIcon(member)}
+            >
+              <Popup>
+                <div dangerouslySetInnerHTML={{ __html: getPopupContent(member, mapStyle) }} />
+              </Popup>
+            </Marker>
+          ))}
         </MarkerClusterGroup>
       ) : (
-        markers
+        members.map((member, index) => (
+          <Marker
+            key={`${member.name}-${index}`}
+            position={[parseFloat(member.latitude), parseFloat(member.longitude)]}
+            icon={createIcon(member)}
+          >
+            <Popup>
+              <div dangerouslySetInnerHTML={{ __html: getPopupContent(member, mapStyle) }} />
+            </Popup>
+          </Marker>
+        ))
       )}
     </MapContainer>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileDown } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { generateDemoCsv } from '../../utils/demoData';
 
 export function Hero() {
   const scrollToUpload = () => {
@@ -11,6 +12,22 @@ export function Hero() {
         block: 'start'
       });
     }
+  };
+
+  const handleGenerateDemo = () => {
+    const csvContent = generateDemoCsv();
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'demo-community-map.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    // Scroll to upload section after download
+    setTimeout(scrollToUpload, 100);
   };
 
   return (
@@ -34,8 +51,14 @@ export function Hero() {
           Get Started
           <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
         </Button>
-        <Button variant="outline" size="lg">
-          Watch Demo
+        <Button 
+          variant="outline" 
+          size="lg"
+          onClick={handleGenerateDemo}
+          className="group"
+        >
+          Generate Demo CSV
+          <FileDown className="ml-2 h-5 w-5 group-hover:translate-y-0.5 transition-transform" />
         </Button>
       </div>
     </div>

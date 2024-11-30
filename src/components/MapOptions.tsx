@@ -1,10 +1,12 @@
 import React from 'react';
-import { MapPin, Image, Search, Maximize, Share2, Grid, Lock } from 'lucide-react';
+import { MapPin, Image, Search, Maximize, Share2, Grid, Lock, Download } from 'lucide-react';
+import { Button } from './ui/Button';
 
 interface MapOptionsProps {
   onChange: (options: MapOptions) => void;
   options: MapOptions;
   hasImages: boolean;
+  onDownload?: () => void;
 }
 
 export interface MapOptions {
@@ -15,7 +17,7 @@ export interface MapOptions {
   enableClustering: boolean;
 }
 
-export function MapOptions({ onChange, options, hasImages }: MapOptionsProps) {
+export function MapOptions({ onChange, options, hasImages, onDownload }: MapOptionsProps) {
   const handleOptionChange = (key: keyof MapOptions, value: any) => {
     onChange({
       ...options,
@@ -30,122 +32,117 @@ export function MapOptions({ onChange, options, hasImages }: MapOptionsProps) {
     }
   };
 
-  const features = [
-    {
-      key: 'markerStyle',
-      label: 'Marker Style',
-      icon: Image,
-      type: 'radio',
-      options: [
-        { value: 'pins', label: 'Location Pins' },
-        { 
-          value: 'photos', 
-          label: (
-            <div className="flex items-center gap-2">
-              Member Photos
-              <Lock className="w-4 h-4 text-amber-500" />
-            </div>
-          ), 
-          disabled: true,
-          premium: true
-        }
-      ],
-      description: 'Choose how members are displayed on the map'
-    },
-    {
-      key: 'enableClustering',
-      label: 'Marker Clustering',
-      icon: Grid,
-      type: 'checkbox',
-      description: 'Group nearby markers together'
-    },
-    {
-      key: 'enableSearch',
-      label: (
-        <button
-          onClick={scrollToPricing}
-          className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          Search Members
-          <Lock className="w-4 h-4" />
-        </button>
-      ),
-      icon: Search,
-      type: 'checkbox',
-      disabled: true,
-      premium: true,
-      description: 'Enable member search functionality'
-    },
-    {
-      key: 'enableFullscreen',
-      label: 'Fullscreen Mode',
-      icon: Maximize,
-      type: 'checkbox',
-      description: 'Allow fullscreen map viewing'
-    },
-    {
-      key: 'enableSharing',
-      label: 'Sharing Options',
-      icon: Share2,
-      type: 'checkbox',
-      description: 'Enable map sharing features'
-    }
-  ];
-
   return (
     <div className="bg-background-white rounded-lg p-6 shadow-soft">
-      <h3 className="text-lg font-semibold text-primary mb-4">Map Features</h3>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-semibold text-primary">Map Features</h3>
+        {onDownload && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDownload}
+            className="flex items-center gap-2 text-accent hover:text-accent-alt"
+          >
+            <Download className="w-4 h-4" />
+            Download Map
+          </Button>
+        )}
+      </div>
+
       <div className="space-y-6">
-        {features.map((feature) => (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Image className="w-4 h-4 text-accent-alt" />
+            <span className="font-medium text-primary">Marker Style</span>
+          </div>
+          <div className="space-y-2 ml-6">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="markerStyle"
+                value="pins"
+                checked={options.markerStyle === 'pins'}
+                onChange={(e) => handleOptionChange('markerStyle', e.target.value)}
+                className="text-accent-alt focus:ring-accent-alt"
+              />
+              <span className="text-secondary">Location Pins</span>
+            </label>
+            <label 
+              className="flex items-center gap-2 cursor-pointer opacity-50"
+              onClick={scrollToPricing}
+            >
+              <input
+                type="radio"
+                name="markerStyle"
+                value="photos"
+                disabled
+                className="text-gray-300"
+              />
+              <span className="flex items-center gap-2 text-gray-400">
+                Member Photos
+                <Lock className="w-4 h-4" />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {[
+          {
+            key: 'enableClustering',
+            icon: Grid,
+            label: 'Marker Clustering',
+            description: 'Group nearby markers together'
+          },
+          {
+            key: 'enableFullscreen',
+            icon: Maximize,
+            label: 'Fullscreen Mode',
+            description: 'Allow fullscreen map viewing'
+          },
+          {
+            key: 'enableSharing',
+            icon: Share2,
+            label: 'Sharing Options',
+            description: 'Enable map sharing features'
+          }
+        ].map((feature) => (
           <div key={feature.key} className="space-y-2">
             <div className="flex items-center gap-2 mb-2">
               <feature.icon className="w-4 h-4 text-accent-alt" />
-              <span className={`font-medium ${feature.premium ? 'text-gray-400' : 'text-primary'}`}>
-                {feature.label}
-              </span>
+              <span className="font-medium text-primary">{feature.label}</span>
             </div>
-            {feature.type === 'radio' ? (
-              <div className="space-y-2 ml-6">
-                {feature.options.map((option) => (
-                  <label 
-                    key={option.value} 
-                    className={`flex items-center gap-2 ${option.premium ? 'cursor-pointer' : ''}`}
-                    onClick={option.premium ? scrollToPricing : undefined}
-                  >
-                    <input
-                      type="radio"
-                      name={feature.key}
-                      value={option.value}
-                      checked={options[feature.key as keyof MapOptions] === option.value}
-                      onChange={(e) => handleOptionChange(feature.key as keyof MapOptions, e.target.value)}
-                      disabled={option.disabled}
-                      className="text-accent-alt focus:ring-accent-alt"
-                    />
-                    <span className={`${option.disabled ? 'text-gray-400' : 'text-secondary'}`}>
-                      {option.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <label 
-                className={`flex items-center gap-2 ml-6 ${feature.premium ? 'cursor-pointer' : ''}`}
-                onClick={feature.premium ? scrollToPricing : undefined}
-              >
-                <input
-                  type="checkbox"
-                  checked={options[feature.key as keyof MapOptions] as boolean}
-                  onChange={(e) => handleOptionChange(feature.key as keyof MapOptions, e.target.checked)}
-                  disabled={feature.disabled}
-                  className="rounded border-tertiary/30 text-accent-alt focus:ring-accent-alt"
-                />
-                <span className={`${feature.premium ? 'text-gray-400' : 'text-secondary'}`}>
-                  {feature.description}
-                </span>
-              </label>
-            )}
+            <label className="flex items-center gap-2 ml-6">
+              <input
+                type="checkbox"
+                checked={options[feature.key as keyof MapOptions] as boolean}
+                onChange={(e) => handleOptionChange(feature.key, e.target.checked)}
+                className="rounded border-tertiary/30 text-accent-alt focus:ring-accent-alt"
+              />
+              <span className="text-secondary">{feature.description}</span>
+            </label>
           </div>
         ))}
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Search className="w-4 h-4 text-accent-alt" />
+            <span className="font-medium text-gray-400 flex items-center gap-2">
+              Search Members
+              <Lock className="w-4 h-4" />
+            </span>
+          </div>
+          <label 
+            className="flex items-center gap-2 ml-6 cursor-pointer"
+            onClick={scrollToPricing}
+          >
+            <input
+              type="checkbox"
+              disabled
+              className="rounded border-gray-300 text-gray-300 cursor-not-allowed"
+            />
+            <span className="text-gray-400">Enable member search functionality</span>
+          </label>
+        </div>
       </div>
     </div>
   );

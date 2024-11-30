@@ -38,11 +38,6 @@ export function MapDemo() {
       }
 
       const hasImages = parsedMembers.some(member => member.image);
-      setMapOptions(prev => ({
-        ...prev,
-        markerStyle: hasImages ? 'photos' : 'pins'
-      }));
-
       const mapCenter = calculateMapCenter(parsedMembers);
       setCenter(mapCenter);
       setMembers(parsedMembers);
@@ -58,13 +53,6 @@ export function MapDemo() {
     if (members.length > 0) {
       const html = generateStandaloneHtml(members, center, mapOptions);
       downloadHtmlFile(html, 'community-map.html');
-    }
-  };
-
-  const scrollToPricing = () => {
-    const pricingSection = document.getElementById('pricing');
-    if (pricingSection) {
-      pricingSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -123,23 +111,6 @@ export function MapDemo() {
                   options={mapOptions}
                 />
               </div>
-              <div className="flex justify-center gap-4">
-                <Button
-                  size="lg"
-                  onClick={handleDownload}
-                  className="group bg-accent hover:bg-accent-alt text-white"
-                >
-                  <Download className="w-5 h-5 mr-2 group-hover:transform group-hover:-translate-y-1 transition-transform" />
-                  Download HTML Map
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={scrollToPricing}
-                >
-                  Upgrade to Pro
-                </Button>
-              </div>
             </div>
           )}
           {error && <ErrorMessage message={error} />}
@@ -154,6 +125,7 @@ export function MapDemo() {
               options={mapOptions}
               onChange={setMapOptions}
               hasImages={members.some(m => m.image)}
+              onDownload={handleDownload}
             />
           )}
         </div>

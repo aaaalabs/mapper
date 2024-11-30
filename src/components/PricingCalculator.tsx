@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CreditCard, Users, Check } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '../utils/cn';
@@ -59,7 +58,8 @@ export function PricingCalculator({ onPlanChange }: PricingCalculatorProps) {
       tier => memberCount >= tier.range[0] && memberCount <= tier.range[1]
     ) || pricingTiers[pricingTiers.length - 1];
     setActiveTier(newTier);
-  }, [memberCount]);
+    onPlanChange(newTier.name === 'Freemium' ? 'free' : 'paid');
+  }, [memberCount, onPlanChange]);
 
   const calculateProgress = () => {
     const [min, max] = activeTier.range;
@@ -70,35 +70,18 @@ export function PricingCalculator({ onPlanChange }: PricingCalculatorProps) {
 
   const calculateTierPrice = (tier: PricingTier) => {
     if (tier.name === 'Freemium') {
-      return tier.price; // Always 0 for Freemium
+      return tier.price;
     } else if (tier.name === 'Premium') {
-      // Premium tier pricing logic based on memberCount
       if (memberCount <= 100) return 9.90;
       if (memberCount <= 250) return 14.90;
       return 19.90;
     }
-    return 0; // Default fallback
+    return 0;
   };
 
-  const sliderStyle = {
-    WebkitAppearance: 'none' as const,
-    background: `linear-gradient(to right, 
-      var(--accent) ${calculateProgress()}%, 
-      var(--muted) ${calculateProgress()}%
-    )`,
-    height: '8px',
-    borderRadius: '4px',
-    '::-webkit-slider-thumb': {
-      WebkitAppearance: 'none' as const,
-      appearance: 'none',
-      width: '20px',
-      height: '20px',
-      backgroundColor: 'var(--accent)',
-      borderRadius: '50%',
-      cursor: 'pointer',
-      border: '2px solid white',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    }
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setMemberCount(value);
   };
 
   return (
@@ -115,7 +98,7 @@ export function PricingCalculator({ onPlanChange }: PricingCalculatorProps) {
 
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
-            <label className="text-primary font-medium">
+            <label htmlFor="member-count" className="text-primary font-medium">
               Community Members
             </label>
             <div className="flex items-center gap-2">
@@ -126,17 +109,26 @@ export function PricingCalculator({ onPlanChange }: PricingCalculatorProps) {
             </div>
           </div>
 
-          <input
-            type="range"
-            min="1"
-            max="500"
-            value={memberCount}
-            onChange={(e) => setMemberCount(parseInt(e.target.value))}
-            className="w-full appearance-none cursor-pointer"
-            style={sliderStyle}
-          />
+          <div className="relative pt-2">
+            <div className="range-track">
+              <div 
+                className="range-progress"
+                style={{ width: `${calculateProgress()}%` }}
+              />
+            </div>
+            <input
+              id="member-count"
+              type="range"
+              min="1"
+              max="500"
+              value={memberCount}
+              onChange={handleSliderChange}
+              className="range-slider"
+              aria-label="Select number of community members"
+            />
+          </div>
 
-          <div className="flex justify-between text-sm text-secondary mt-1">
+          <div className="flex justify-between text-sm text-secondary mt-3">
             <span>1</span>
             <span>50</span>
             <span>500+</span>
@@ -172,28 +164,6 @@ export function PricingCalculator({ onPlanChange }: PricingCalculatorProps) {
             </div>
           ))}
         </div>
-
-        <div className="flex justify-center gap-4">
-          <Button
-            size="lg"
-            onClick={() => {}}
-            className="group"
-          >
-            <CreditCard className="w-5 h-5 mr-2" />
-            Start Free Trial
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => {}}
-          >
-            Contact Sales
-          </Button>
-        </div>
-
-        <p className="text-center text-sm text-secondary mt-4">
-          7-day free trial, no credit card required
-        </p>
       </div>
     </div>
   );

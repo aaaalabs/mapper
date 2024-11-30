@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Upload, FileUp } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface FileUploadProps {
@@ -32,7 +32,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
   return (
     <div
       className={cn(
-        "border-2 border-dashed border-tertiary/30 rounded-lg p-8 text-center hover:border-accent transition-colors bg-background-white shadow-soft",
+        "text-center",
         className
       )}
       onDragOver={handleDragOver}
@@ -49,12 +49,14 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
         htmlFor="file-upload"
         className="cursor-pointer flex flex-col items-center gap-4"
       >
-        <div className="bg-background p-4 rounded-full">
-          <FileUp className="w-8 h-8 text-accent-alt" />
-        </div>
+        <Upload className="h-8 w-8 text-tertiary" />
         <div>
-          <p className="text-lg font-semibold text-primary mb-2">Drop your CSV file here</p>
-          <p className="text-sm text-secondary">or click to browse</p>
+          <p className="text-sm mb-1 text-secondary">
+            Drop your CSV file here or click to browse
+          </p>
+          <p className="text-xs text-tertiary">
+            Required columns: name, location, latitude, longitude
+          </p>
         </div>
       </label>
     </div>

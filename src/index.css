@@ -35,4 +35,56 @@
   .pricing-card {
     @apply transition-all duration-500 ease-in-out transform hover:scale-[1.02];
   }
+
+  @keyframes fadeSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeSlideUp {
+    animation: fadeSlideUp 1s ease-out forwards;
+  }
+
+  /* Custom range input styles */
+  .range-slider {
+    @apply w-full h-2 bg-transparent rounded-full appearance-none cursor-pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    @apply w-6 h-6 rounded-full bg-accent border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform;
+    margin-top: -8px;
+  }
+
+  .range-slider::-moz-range-thumb {
+    @apply w-6 h-6 rounded-full bg-accent border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform;
+  }
+
+  .range-slider:focus {
+    @apply outline-none;
+  }
+
+  .range-slider:focus::-webkit-slider-thumb {
+    @apply ring-4 ring-accent/20;
+  }
+
+  .range-slider:focus::-moz-range-thumb {
+    @apply ring-4 ring-accent/20;
+  }
+
+  .range-track {
+    @apply relative h-2 rounded-full overflow-hidden bg-tertiary/20;
+  }
+
+  .range-progress {
+    @apply absolute inset-y-0 left-0 bg-gradient-to-r from-accent to-accent-alt transition-all duration-300 ease-out pointer-events-none;
+  }
 }
