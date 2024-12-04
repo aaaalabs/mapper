@@ -13,7 +13,7 @@ interface MapProps {
 export function Map({ isLoading, mapHtml, members, center }: MapProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+      <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="text-center">
           <Globe className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Generating your community map...</p>
@@ -24,7 +24,7 @@ export function Map({ isLoading, mapHtml, members, center }: MapProps) {
 
   if (!mapHtml && (!members || !center)) {
     return (
-      <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+      <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="text-center">
           <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Upload a CSV to generate your map</p>
@@ -35,7 +35,7 @@ export function Map({ isLoading, mapHtml, members, center }: MapProps) {
 
   if (members && center) {
     return (
-      <div className="h-96 rounded-lg overflow-hidden border border-gray-200 bg-white">
+      <div className="h-full rounded-lg overflow-hidden border border-gray-200 bg-white">
         <CommunityMap
           members={members}
           center={center}
@@ -53,7 +53,7 @@ export function Map({ isLoading, mapHtml, members, center }: MapProps) {
 
   return (
     <div 
-      className="h-96 rounded-lg overflow-hidden border border-gray-200 bg-white"
+      className="h-full rounded-lg overflow-hidden border border-gray-200 bg-white"
       dangerouslySetInnerHTML={{ __html: mapHtml || '' }}
     />
   );
