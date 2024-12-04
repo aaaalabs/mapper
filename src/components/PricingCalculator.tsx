@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Users, Check } from 'lucide-react';
-import { Button } from './ui/Button';
 import { cn } from '../utils/cn';
 
 interface PricingTier {
