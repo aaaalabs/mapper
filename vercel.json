@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/map/:id",
+      "destination": "/"
+    },
+    {
+      "source": "/map/:id/embed",
+      "destination": "/"
+    },
+    {
+      "source": "/insights",
+      "destination": "/"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
+}
