@@ -6,6 +6,7 @@ import { OverlayContent } from '../ui/OverlayContent';
 import { OverlayFooter } from '../ui/OverlayFooter';
 import { scrollToElement } from '../../utils/scrollUtils';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
+import { createLead } from '../../services/leadService';
 
 export function FeatureComparison() {
   const [showBetaForm, setShowBetaForm] = useState(false);
@@ -15,28 +16,51 @@ export function FeatureComparison() {
     communityLink: ''
   });
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isFormValid = () => {
+    return formData.firstName.trim() !== '' && 
+           formData.email.trim() !== '' && 
+           formData.communityLink.trim() !== '';
+  };
 
   const handleUploadClick = () => {
     trackEvent({
       event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
       event_data: { source: 'feature_comparison' }
     });
-    scrollToElement('map-upload', 80);
+    scrollToElement('quick-upload', 80);
   };
 
   const handleBetaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    trackEvent({
-      event_name: 'beta_signup',
-      event_data: { ...formData }
-    });
-    // Here you would typically send the data to your backend
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setShowBetaForm(false);
-      setFormData({ firstName: '', email: '', communityLink: '' });
-    }, 2000);
+    setIsSubmitting(true);
+
+    try {
+      await trackEvent({
+        event_name: 'beta_signup',
+        event_data: { ...formData }
+      });
+
+      await createLead({
+        email: formData.email,
+        name: formData.firstName,
+        community_link: formData.communityLink,
+        lead_type: 'beta_waitlist'
+      });
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setShowBetaForm(false);
+        setFormData({ firstName: '', email: '', communityLink: '' });
+      }, 3000);
+    } catch (error) {
+      console.error('Error submitting beta form:', error);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -174,7 +198,12 @@ export function FeatureComparison() {
             <Button variant="secondary" onClick={() => setShowBetaForm(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleBetaSubmit}>
+            <Button 
+              variant="primary" 
+              onClick={handleBetaSubmit}
+              disabled={!isFormValid() || isSubmitting}
+              className={!isFormValid() || isSubmitting ? "opacity-50 cursor-not-allowed" : ""}
+            >
               Join Waitlist
             </Button>
           </OverlayFooter>

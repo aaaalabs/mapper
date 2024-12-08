@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { findLeadByEmail, associateLeadWithFeedback, trackLeadInteraction } from './leadService';
 
 interface InitialRating {
   mapId: string;
@@ -30,7 +31,7 @@ export async function saveInitialRating({ mapId, rating }: InitialRating) {
 }
 
 export async function updateWithDetailedFeedback(feedbackId: string, feedback: DetailedFeedback) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('map_feedback')
     .update({
       testimonial: feedback.feedbackText,
@@ -38,9 +39,32 @@ export async function updateWithDetailedFeedback(feedbackId: string, feedback: D
       community_type: feedback.useCase || 'other',
       organization_name: feedback.organization,
       contact_email: feedback.email,
-      can_feature: feedback.canFeature
+      can_feature: feedback.canFeature,
+      updated_at: new Date().toISOString()
     })
-    .eq('id', feedbackId);
+    .eq('id', feedbackId)
+    .select()
+    .single();
 
   if (error) throw error;
+
+  // If email is provided, try to connect with existing lead
+  if (feedback.email) {
+    try {
+      const existingLead = await findLeadByEmail(feedback.email);
+      if (existingLead) {
+        await associateLeadWithFeedback(existingLead.id!, feedbackId);
+        await trackLeadInteraction(feedback.email, 'provided_feedback', {
+          feedback_id: feedbackId,
+          rating: data.satisfaction_rating,
+          use_case: feedback.useCase
+        });
+      }
+    } catch (err) {
+      console.error('Error connecting feedback to lead:', err);
+      // Don't throw here - we still want to save the feedback even if lead connection fails
+    }
+  }
+
+  return data;
 }

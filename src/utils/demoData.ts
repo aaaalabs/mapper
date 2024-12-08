@@ -10,10 +10,14 @@ function generateUsername(firstName: string, lastName: string): string {
 }
 
 // Data pools for random generation
-const firstNames = [
-  "Sarah", "Marcus", "Priya", "James", "Maria", "Lisa", "Alex", "Emma", "Carlos",
-  "Nina", "David", "Yuki", "Isabella", "Pierre", "Olivia", "Michael", "Sophie",
-  "Raj", "Anna", "Luis", "Elena", "Thomas", "Mei", "Ahmed", "Zara"
+const maleFirstNames = [
+  "Marcus", "James", "Alex", "Carlos", "David", "Michael", "Raj", "Luis",
+  "Thomas", "Ahmed", "Pierre", "Daniel", "William", "Richard", "John"
+];
+
+const femaleFirstNames = [
+  "Sarah", "Priya", "Maria", "Lisa", "Emma", "Nina", "Yuki", "Isabella",
+  "Olivia", "Sophie", "Anna", "Elena", "Mei", "Zara", "Laura"
 ];
 
 const lastNames = [
@@ -42,78 +46,79 @@ const roles = [
   "AI Researcher", "Growth Hacker", "UI Designer"
 ];
 
-// Example communities with curated members
-const techCommunity: CommunityMember[] = [
-  {
-    name: "Sarah Chen",
-    location: "San Francisco, USA",
-    latitude: "37.7749",
-    longitude: "-122.4194",
-    title: "Software Engineer",
-    image: "https://i.pravatar.cc/150?u=sarahchen",
-    linkedin: "https://linkedin.com/in/sarahchen",
-    website: "https://sarahchen.dev"
-  },
-  // ... keep existing tech community members ...
+// Profile image URLs from Unsplash (professional headshots)
+const maleProfileImages = [
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop", // Male professional 1
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop", // Male professional 2
+  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop", // Male professional 3
+  "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&h=150&fit=crop", // Male professional 4
+  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop"  // Male professional 5
 ];
 
-// ... keep other community definitions ...
-
-export const communityExamples = [
-  {
-    name: "Tech Innovators Network",
-    description: "Global tech professionals collaborating on cutting-edge projects",
-    members: techCommunity,
-  },
-  // ... keep other community examples ...
+const femaleProfileImages = [
+  "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop", // Female professional 1
+  "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&h=150&fit=crop", // Female professional 2
+  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop", // Female professional 3
+  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&h=150&fit=crop", // Female professional 4
+  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop"     // Female professional 5
 ];
 
-export function generateDemoMembers(count: number = 50): CommunityMember[] {
+const domains = [
+  ".dev",
+  ".design",
+  ".me",
+  ".io",
+  ".tech",
+  ".ai",
+  ".co",
+  ".digital",
+  ".studio",
+  ".work"
+];
+
+export function generateDemoMembers(): CommunityMember[] {
   const members: CommunityMember[] = [];
-  const usedNames = new Set();
+  const count = 20; // Fixed number of demo members
 
-  while (members.length < count) {
-    const firstName = getRandomElement(firstNames);
+  for (let i = 0; i < count; i++) {
+    // Randomly choose gender and corresponding first name and image
+    const isMale = Math.random() < 0.5;
+    const firstName = getRandomElement(isMale ? maleFirstNames : femaleFirstNames);
     const lastName = getRandomElement(lastNames);
-    const fullName = `${firstName} ${lastName}`;
-
-    if (usedNames.has(fullName)) continue;
-    usedNames.add(fullName);
-
     const city = getRandomElement(cities);
+    const role = getRandomElement(roles);
+    const domain = getRandomElement(domains);
     const username = generateUsername(firstName, lastName);
 
     members.push({
-      name: fullName,
+      name: `${firstName} ${lastName}`,
       location: city.name,
       latitude: city.lat.toString(),
       longitude: city.lng.toString(),
-      title: getRandomElement(roles),
-      image: `https://i.pravatar.cc/150?u=${username}`,
-      linkedin: `https://linkedin.com/in/${username}`,
-      website: `https://${username}.dev`
+      title: role,
+      image: getRandomElement(isMale ? maleProfileImages : femaleProfileImages),
+      website: `https://${username}${domain}`,
+      linkedin: `https://linkedin.com/in/${username}`
     });
   }
 
   return members;
 }
 
+export const demoMembers: CommunityMember[] = generateDemoMembers();
+
 export function generateDemoCsv(): string {
-  const members = generateDemoMembers(10); // Use 10 members for the demo CSV
-  const headers = ['name', 'location', 'latitude', 'longitude', 'title', 'image', 'linkedin', 'website'];
-  
-  const rows = members.map(member => {
-    return [
-      member.name,
-      member.location,
-      member.latitude,
-      member.longitude,
-      member.title || '',
-      member.image || '',
-      member.linkedin || '',
-      member.website || ''
-    ].map(value => `"${value}"`).join(',');
-  });
-  
-  return [headers.join(','), ...rows].join('\n');
+  const header = 'name,title,location,latitude,longitude,image,website,linkedin';
+  const rows = demoMembers.map(member => 
+    `${member.name},${member.title || ''},"${member.location}",${member.latitude},${member.longitude},${member.image || ''},${member.website || ''},${member.linkedin || ''}`
+  );
+  return [header, ...rows].join('\n');
 }
+
+export const communityExamples = [
+  {
+    name: "Tech Innovators Network",
+    description: "Global tech professionals collaborating on cutting-edge projects",
+    members: demoMembers,
+  }
+];

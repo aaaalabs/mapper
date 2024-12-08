@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Map as MapIcon, Menu, X } from 'lucide-react';
+import { Logo } from '../Logo';
 import { Button } from '../ui/Button';
+import { DemoCallButton } from '../DemoCallButton';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,7 +23,8 @@ export function Header() {
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-gray-600 hover:text-gray-900">Features</a>
             <a href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
-            <Button variant="primary" size="sm">Get Started</Button>
+            <DemoCallButton />
+            <Button variant="primary" size="sm" onClick={() => window.location.href = '#quick-upload'}>Get Started</Button>
           </nav>
 
           <button
@@ -38,7 +41,8 @@ export function Header() {
           <div className="px-4 py-2 space-y-1">
             <a href="#features" className="block py-2 text-gray-600 hover:text-gray-900">Features</a>
             <a href="#pricing" className="block py-2 text-gray-600 hover:text-gray-900">Pricing</a>
-            <Button variant="primary" size="sm" className="w-full mt-4">Get Started</Button>
+            <DemoCallButton />
+            <Button variant="primary" size="sm" className="w-full mt-4" onClick={() => window.location.href = '#quick-upload'}>Get Started</Button>
           </div>
         </div>
       )}

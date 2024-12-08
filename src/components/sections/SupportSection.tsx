@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Overlay } from '../ui/Overlay';
 import { OverlayContent } from '../ui/OverlayContent';
 import { OverlayFooter } from '../ui/OverlayFooter';
 import { Check } from 'lucide-react';
+import { createLead } from '../../services/leadService';
+import { trackEvent } from '../../services/analytics';
 
 export function SupportSection() {
   const [showExtractionForm, setShowExtractionForm] = useState(false);
@@ -14,31 +16,49 @@ export function SupportSection() {
     email: '',
     communityLink: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load Fillout script when demo form is opened
-  useEffect(() => {
-    if (showDemoForm) {
-      const script = document.createElement('script');
-      script.src = 'https://server.fillout.com/embed/v1/';
-      script.async = true;
-      document.body.appendChild(script);
+  const isFormValid = () => {
+    return formData.name.trim() !== '' && 
+           formData.email.trim() !== '' && 
+           formData.communityLink.trim() !== '';
+  };
 
-      return () => {
-        document.body.removeChild(script);
-      };
-    }
-  }, [showDemoForm]);
+  const handleScheduleDemo = () => {
+    window.open('https://voiceloop.fillout.com/Demo', '_blank');
+  };
 
   const handleExtractionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the data to your backend
-    console.log('Data extraction request:', formData);
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setShowExtractionForm(false);
-      setFormData({ name: '', email: '', communityLink: '' });
-    }, 2000);
+    setIsSubmitting(true);
+
+    try {
+      await trackEvent({
+        event_name: 'data_extraction_request',
+        event_data: { ...formData }
+      });
+
+      await createLead({
+        email: formData.email,
+        name: formData.name,
+        source: 'extraction_form',
+        metadata: {
+          community_link: formData.communityLink
+        }
+      });
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setShowExtractionForm(false);
+        setFormData({ name: '', email: '', communityLink: '' });
+      }, 3000);
+    } catch (error) {
+      console.error('Error submitting extraction form:', error);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -50,15 +70,15 @@ export function SupportSection() {
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
         <Button 
           variant="secondary"
-          onClick={() => setShowExtractionForm(true)}
+          onClick={handleScheduleDemo}
         >
-          Book Data Extraction (€9.90)
+          Schedule Demo Call
         </Button>
         <Button 
           variant="secondary"
-          onClick={() => setShowDemoForm(true)}
+          onClick={() => setShowExtractionForm(true)}
         >
-          Schedule Demo Call
+          Book Data Extraction (€9.90)
         </Button>
       </div>
 
@@ -127,7 +147,12 @@ export function SupportSection() {
             <Button variant="secondary" onClick={() => setShowExtractionForm(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleExtractionSubmit}>
+            <Button 
+              variant="primary" 
+              onClick={handleExtractionSubmit}
+              disabled={!isFormValid() || isSubmitting}
+              className={!isFormValid() || isSubmitting ? "opacity-50 cursor-not-allowed" : ""}
+            >
               Book Now (€9.90)
             </Button>
           </OverlayFooter>

@@ -20,61 +20,20 @@ function MapEventHandler({ onLoad, onError }: { onLoad: () => void; onError: () 
   const map = useMap();
 
   useEffect(() => {
-    let loadedTiles = 0;
-    let lastZoom = map.getZoom();
-    let lastCenter = map.getCenter();
-    let interactionTimeout: NodeJS.Timeout;
-    
     const handleLoad = () => {
-      loadedTiles++;
-      if (loadedTiles >= 1) {
-        onLoad();
-      }
+      onLoad();
     };
 
-    const handleZoomEnd = () => {
-      const newZoom = map.getZoom();
-      if (newZoom !== lastZoom) {
-        trackEvent({
-          event_name: ANALYTICS_EVENTS.MAP_INTERACTION.ZOOM,
-          event_data: { from: lastZoom, to: newZoom }
-        });
-        lastZoom = newZoom;
-      }
+    const handleError = () => {
+      onError();
     };
 
-    const handleMoveEnd = () => {
-      clearTimeout(interactionTimeout);
-      interactionTimeout = setTimeout(() => {
-        const newCenter = map.getCenter();
-        if (newCenter.lat !== lastCenter.lat || newCenter.lng !== lastCenter.lng) {
-          trackEvent({
-            event_name: ANALYTICS_EVENTS.MAP_INTERACTION.PAN,
-            event_data: {
-              from: [lastCenter.lat, lastCenter.lng],
-              to: [newCenter.lat, newCenter.lng]
-            }
-          });
-          lastCenter = newCenter;
-        }
-      }, 500); // Debounce pan events
-    };
-
-    map.on('tileloadstart', () => {
-      loadedTiles = 0;
-    });
     map.on('tileload', handleLoad);
-    map.on('tileerror', onError);
-    map.on('zoomend', handleZoomEnd);
-    map.on('moveend', handleMoveEnd);
+    map.on('tileerror', handleError);
 
     return () => {
-      map.off('tileloadstart');
       map.off('tileload', handleLoad);
-      map.off('tileerror', onError);
-      map.off('zoomend', handleZoomEnd);
-      map.off('moveend', handleMoveEnd);
-      clearTimeout(interactionTimeout);
+      map.off('tileerror', handleError);
     };
   }, [map, onLoad, onError]);
 
@@ -94,57 +53,47 @@ export const Map = forwardRef<HTMLDivElement, MapProps>(({
   members,
   center = [0, 0],
   zoom = 2,
-  isLoading,
-  hideShareButton,
-  onShare
+  isLoading = false,
+  hideShareButton = false,
+  onShare,
 }, ref) => {
-  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [tilesLoaded, setTilesLoaded] = useState(false);
-  const [tileError, setTileError] = useState(false);
-  const [invalidMembers, setInvalidMembers] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Validate member coordinates
-    const invalid = members.filter(member => {
-      const lat = parseFloat(member.latitude);
-      const lng = parseFloat(member.longitude);
-      return isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180;
-    }).map(m => m.name);
-    
-    setInvalidMembers(invalid);
-  }, [members]);
-
-  useEffect(() => {
-    if (members.length > 0) {
-      // Wrap analytics in try-catch to prevent map from breaking
-      trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_INTERACTION.VIEW,
-        event_data: { members_count: members.length }
-      }).catch(err => {
-        console.warn('Analytics failed but map continues:', err);
-      });
-    }
-  }, [members]);
+  const [tilesError, setTilesError] = useState(false);
 
   const handleTileLoad = () => {
     setTilesLoaded(true);
-    setTileError(false);
   };
 
   const handleTileError = () => {
-    setTileError(true);
+    setTilesError(true);
   };
 
-  const handleShare = () => {
-    if (onShare) {
-      onShare();
+  const handleShare = async () => {
+    trackEvent({ event_name: ANALYTICS_EVENTS.MAP_SHARE });
+    
+    const shareData = {
+      title: 'Mapper - Community Visualization Tool',
+      text: 'Check out this amazing tool for visualizing your community on a map!',
+      url: 'https://mapper.voiceloop.io'
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        await navigator.clipboard.writeText(shareData.url);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
     }
   };
 
   const handleMarkerClick = (member: CommunityMember) => {
     trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_INTERACTION.MARKER_CLICK,
-      event_data: { member_name: member.name, location: member.location }
+      event_name: ANALYTICS_EVENTS.MAP_MARKER_CLICK,
+      event_data: { member_name: member.name }
     });
   };
 
@@ -152,96 +101,103 @@ export const Map = forwardRef<HTMLDivElement, MapProps>(({
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Loading map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (tileError) {
-    return (
-      <div className="h-full flex items-center justify-center bg-red-50 rounded-lg">
-        <div className="text-center px-4">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <p className="text-sm text-red-600 font-medium">Failed to load map tiles</p>
-          <p className="text-xs text-red-500 mt-1">Please check your internet connection</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4" />
+          <p className="text-gray-500">Loading map...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={ref} className="relative h-full rounded-lg overflow-hidden border border-gray-200">
+    <div ref={ref} className="relative h-full w-full rounded-lg overflow-hidden">
       <MapContainer
         center={center}
         zoom={zoom}
         className="h-full w-full"
-        scrollWheelZoom={true}
         zoomControl={false}
-        ref={setMapInstance}
       >
         <ZoomControl position="bottomright" />
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapEventHandler onLoad={handleTileLoad} onError={handleTileError} />
         
-        {members.map((member, index) => {
-          const lat = parseFloat(member.latitude);
-          const lng = parseFloat(member.longitude);
-          
-          if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-          
-          return (
-            <Marker
-              key={`${member.name}-${index}`}
-              position={[lat, lng]}
-              eventHandlers={{
-                click: () => handleMarkerClick(member)
-              }}
-            >
-              <Popup>
-                <div className="p-2">
-                  <h3 className="font-medium">{member.name}</h3>
-                  <p className="text-sm text-gray-600">{member.location}</p>
-                  {member.title && (
-                    <p className="text-sm text-gray-500">{member.title}</p>
+        {members.map((member, index) => (
+          <Marker
+            key={`${member.name}-${index}`}
+            position={[parseFloat(member.latitude), parseFloat(member.longitude)]}
+            eventHandlers={{
+              click: () => handleMarkerClick(member)
+            }}
+          >
+            <Popup>
+              <div className="p-1 text-center">
+                {member.image && (
+                  <div className="mb-1">
+                    <img 
+                      src={member.image} 
+                      alt={member.name}
+                      className="w-12 h-12 rounded-full object-cover mx-auto"
+                    />
+                  </div>
+                )}
+                <h3 className="font-semibold text-sm leading-tight m-0">{member.name}</h3>
+                {member.title && (
+                  <p className="text-gray-600 text-xs leading-tight m-0">{member.title}</p>
+                )}
+                <p className="text-gray-500 text-xs leading-tight m-0">{member.location}</p>
+                <div className="flex gap-1 justify-center mt-1">
+                  {member.website && (
+                    <a
+                      href={member.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary-dark text-[10px] transition-colors px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200"
+                    >
+                      Website
+                    </a>
+                  )}
+                  {member.linkedin && (
+                    <a
+                      href={member.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary-dark text-[10px] transition-colors px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200"
+                    >
+                      LinkedIn
+                    </a>
                   )}
                 </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
-
-      {!tilesLoaded && !tileError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-sm text-gray-500">Loading tiles...</p>
-          </div>
-        </div>
-      )}
-
-      {invalidMembers.length > 0 && (
-        <div className="absolute top-4 left-4 z-[1000] bg-yellow-50 rounded-lg p-3 shadow-sm border border-yellow-200 max-w-xs">
-          <p className="text-sm text-yellow-800 font-medium">Invalid coordinates found</p>
-          <p className="text-xs text-yellow-600 mt-1">
-            {invalidMembers.length} member{invalidMembers.length > 1 ? 's' : ''} skipped due to invalid coordinates
-          </p>
-        </div>
-      )}
 
       {!hideShareButton && (
         <button
           onClick={handleShare}
-          className="absolute top-4 right-4 z-[1000] bg-white rounded-lg shadow-md p-2 hover:bg-gray-50 transition-colors"
-          title="Share Map"
+          className={cn(
+            "absolute top-4 right-4 z-[400] bg-white rounded-lg shadow-md p-2",
+            "hover:bg-gray-50 transition-colors duration-200"
+          )}
+          aria-label="Share map"
         >
           <Share2 className="w-5 h-5 text-gray-600" />
         </button>
+      )}
+
+      {tilesError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="bg-white p-4 rounded-lg shadow-lg max-w-sm text-center">
+            <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+            <h3 className="text-lg font-medium mb-2">Map Loading Error</h3>
+            <p className="text-gray-600">
+              There was an error loading the map tiles. Please check your internet connection and try again.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

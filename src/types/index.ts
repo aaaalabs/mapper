@@ -1,13 +1,14 @@
 export interface CommunityMember {
   name: string;
-  title?: string;
-  image?: string;
-  longitude: string;
-  latitude: string;
   location: string;
-  website?: string;
-  linkedin?: string;
-  updated_at?: string;
+  latitude: string;
+  longitude: string;
+  role?: string;
+  profileImage?: string;
+  socialLinks?: {
+    twitter?: string;
+    linkedin?: string;
+  };
 }
 
 export interface MapMarker {

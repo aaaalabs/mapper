@@ -6,6 +6,10 @@ import { QuickUpload } from './components/sections/QuickUpload';
 import { FeatureComparison } from './components/sections/FeatureComparison';
 import { SupportSection } from './components/sections/SupportSection';
 import { TestimonialSection } from './components/sections/TestimonialSection';
+import { Footer } from './components/Footer';
+import { InsightsPage } from './pages/InsightsPage';
+import { Routes, Route } from 'react-router-dom';
+import { HomePage } from './pages/HomePage';
 
 function App() {
   const [showLogin, setShowLogin] = useState(false);
@@ -16,16 +20,13 @@ function App() {
       <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
       
       <main className="max-w-6xl mx-auto px-4 pt-24 space-y-32">
-        <HeroSection />
-        <QuickUpload />
-        <FeatureComparison />
-        <SupportSection />
-        <TestimonialSection />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/insights" element={<InsightsPage />} />
+        </Routes>
       </main>
 
-      <footer className="mt-32 py-8 text-center text-tertiary">
-        <p>© {new Date().getFullYear()} VoiceLoop. All rights reserved.</p>
-      </footer>
+      <Footer />
     </div>
   );
 }

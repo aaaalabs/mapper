@@ -9,13 +9,27 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      proxy: {
+        '/api/geocode': {
+          target: 'https://hook.eu1.make.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/geocode/, '/x949oltyqbmwlgkw9wrikm8tb3cc8krn'),
+          configure: (proxy, _options) => {
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              // Keep using 'location' parameter without transforming to 'locator'
+              const url = new URL(req.url!, 'http://dummy.com');
+              proxyReq.path = `/x949oltyqbmwlgkw9wrikm8tb3cc8krn?location=${url.searchParams.get('location')}`;
+            });
+          },
+        },
+      },
       headers: {
         'Content-Security-Policy': `
           default-src 'self';
           img-src 'self' data: https: blob:;
           script-src 'self' 'unsafe-inline' 'unsafe-eval';
           style-src 'self' 'unsafe-inline';
-          connect-src 'self' https://jduhhbvmjoampjgsgpej.supabase.co wss://jduhhbvmjoampjgsgpej.supabase.co https://*.tile.openstreetmap.org;
+          connect-src 'self' https://jduhhbvmjoampjgsgpej.supabase.co wss://jduhhbvmjoampjgsgpej.supabase.co https://*.tile.openstreetmap.org https://hook.eu1.make.com;
           frame-src 'self';
           font-src 'self' data:;
         `.replace(/\s+/g, ' ').trim()

@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fillout/react": "^1.1.2",
     "@supabase/supabase-js": "^2.47.2",
+    "@types/date-fns": "^2.6.3",
     "axios": "^1.6.7",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "html2canvas": "^1.4.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",

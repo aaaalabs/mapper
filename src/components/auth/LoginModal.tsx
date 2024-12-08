@@ -14,7 +14,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto">
+    <div className="fixed inset-0 z-[1000] overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"

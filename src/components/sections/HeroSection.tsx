@@ -20,7 +20,7 @@ export function HeroSection() {
   const [hasInteractedWithDemo, setHasInteractedWithDemo] = useState(false);
 
   useEffect(() => {
-    const members = generateDemoMembers(50);
+    const members = generateDemoMembers();
     setDemoMembers(members);
     setMapCenter(calculateMapCenter(members));
 
@@ -76,7 +76,7 @@ export function HeroSection() {
       </div>
       
       <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-4 sm:mb-6 text-primary">
-        Transform Your Community
+        Transform Your Skool Community
         <br className="hidden sm:block" />
         <span className="gradient-text">
           Into An Interactive Map
