@@ -454,6 +454,7 @@ export function QuickUpload() {
       <Overlay isOpen={showShare} onClose={() => setShowShare(false)}>
         {currentMapId && (
           <ShareModal
+            isOpen={showShare}
             mapId={currentMapId}
             onClose={() => setShowShare(false)}
           />
