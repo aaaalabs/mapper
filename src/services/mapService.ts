@@ -171,6 +171,8 @@ export async function getMap(id: string): Promise<SavedMap> {
   }
 
   try {
+    console.log('Fetching map:', { id, url: supabase.supabaseUrl });
+
     // First try to get the map data
     const { data: mapData, error: mapError } = await supabase
       .from('maps')
@@ -187,10 +189,23 @@ export async function getMap(id: string): Promise<SavedMap> {
       .single();
 
     if (mapError) {
-      console.error('Supabase error:', mapError);
+      console.error('Supabase error details:', {
+        error: mapError,
+        code: mapError.code,
+        message: mapError.message,
+        details: mapError.details,
+        hint: mapError.hint
+      });
+
       if (mapError.code === 'PGRST116') {
         throw new MapError('Map not found', 'NOT_FOUND');
       }
+
+      // Check for auth errors
+      if (mapError.code?.includes('auth')) {
+        throw new MapError('Authentication error: ' + mapError.message, mapError.code);
+      }
+
       throw new MapError(
         mapError.message,
         mapError.code
@@ -198,11 +213,25 @@ export async function getMap(id: string): Promise<SavedMap> {
     }
 
     if (!mapData) {
+      console.error('No map data found for ID:', id);
       throw new MapError('Map not found', 'NOT_FOUND');
     }
 
+    // Log successful retrieval
+    console.log('Map retrieved successfully:', { 
+      id: mapData.id, 
+      hasMembers: Array.isArray(mapData.members),
+      hasCenter: Array.isArray(mapData.center),
+      hasZoom: typeof mapData.zoom === 'number'
+    });
+
     // Validate the map data structure
     if (!Array.isArray(mapData.members) || !Array.isArray(mapData.center) || typeof mapData.zoom !== 'number') {
+      console.error('Invalid map data format:', { 
+        membersType: typeof mapData.members,
+        centerType: typeof mapData.center,
+        zoomType: typeof mapData.zoom
+      });
       throw new MapError('Invalid map data format');
     }
 
@@ -214,7 +243,11 @@ export async function getMap(id: string): Promise<SavedMap> {
     if (error instanceof MapError) {
       throw error;
     }
-    console.error('Error fetching map:', error);
+    console.error('Unexpected error fetching map:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw new MapError('An unexpected error occurred while fetching the map');
   }
 }
