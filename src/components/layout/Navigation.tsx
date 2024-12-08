@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogIn } from 'lucide-react';
+import { LogIn, Users } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Logo } from '../ui/Logo';
 import { ThemeToggle } from '../ui/ThemeToggle';
@@ -27,12 +27,19 @@ export function Navigation({ onLoginClick }: NavigationProps) {
         <button 
           onClick={onLoginClick}
           className="hover:text-primary flex items-center gap-2 text-secondary"
+          aria-label="Beta Login"
         >
           <LogIn className="h-5 w-5" />
-          Beta Login
+          <span className="hidden sm:inline">Beta Login</span>
         </button>
-        <Button variant="primary" onClick={handleBetaClick}>
-          Join Beta Waitlist
+        <Button 
+          variant="primary" 
+          onClick={handleBetaClick}
+          className="flex items-center gap-2"
+          aria-label="Join Beta Waitlist"
+        >
+          <Users className="h-5 w-5" />
+          <span className="hidden sm:inline">Join Beta Waitlist</span>
         </Button>
       </div>
     </nav>
