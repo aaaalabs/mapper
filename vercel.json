@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/embed/:id",
+      "destination": "/"
+    },
+    {
       "source": "/map/:id",
       "destination": "/"
     },
@@ -13,7 +17,7 @@
       "destination": "/"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/.*).*)",
       "destination": "/"
     }
   ]
