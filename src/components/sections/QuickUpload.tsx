@@ -14,6 +14,7 @@ import { cn } from '../../lib/utils';
 import { FeedbackForm } from '../FeedbackForm';
 import { saveMap, trackMapDownload } from '../../services/mapService';
 import { ShareModal } from '../ShareModal';
+import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 
 export function QuickUpload() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,10 +25,7 @@ export function QuickUpload() {
   const [uploadStep, setUploadStep] = useState<'initial' | 'preview' | 'success'>('initial');
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
-
-  // Quick feedback before full form
   const [quickRating, setQuickRating] = useState<number | null>(null);
-
   const [showShare, setShowShare] = useState(false);
 
   const handleFileSelect = async (file: File) => {
@@ -35,13 +33,27 @@ export function QuickUpload() {
       setIsLoading(true);
       setError(null);
 
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
+        event_data: { file_size: file.size }
+      });
+
       const parsedMembers = await parseCsvFile(file);
       setMembers(parsedMembers);
       const mapCenter = calculateMapCenter(parsedMembers);
       setCenter(mapCenter);
       setUploadStep('preview');
+
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
+        event_data: { members_count: parsedMembers.length }
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process CSV file');
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.ERROR,
+        event_data: { error: err instanceof Error ? err.message : 'Unknown error' }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +77,11 @@ export function QuickUpload() {
       try {
         setIsLoading(true);
         
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.STARTED,
+          event_data: { members_count: members.length }
+        });
+
         const savedMap = await saveMap({
           name: 'Community Map',
           members,
@@ -72,8 +89,6 @@ export function QuickUpload() {
           zoom: 2
         });
         
-        setCurrentMapId(savedMap.id);
-
         const html = generateStandaloneHtml(members, center, {
           markerStyle: 'default',
           enableFullscreen: true,
@@ -82,20 +97,34 @@ export function QuickUpload() {
         });
         downloadHtmlFile(html, 'community-map.html');
 
+        setCurrentMapId(savedMap.id);
         await trackMapDownload(savedMap.id);
         setUploadStep('success');
+
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
+          event_data: { map_id: savedMap.id }
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to save map');
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.ERROR,
+          event_data: { error: err instanceof Error ? err.message : 'Unknown error' }
+        });
       } finally {
         setIsLoading(false);
       }
     }
   };
 
-  const handleQuickRating = (rating: number) => {
+  const handleQuickRating = async (rating: number) => {
     setQuickRating(rating);
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.FEEDBACK.RATING,
+      event_data: { rating, map_id: currentMapId }
+    });
+    
     if (rating >= 4) {
-      // For high ratings, show feedback form after a short delay
       setTimeout(() => setShowFeedback(true), 500);
     }
   };
@@ -110,8 +139,12 @@ export function QuickUpload() {
     setQuickRating(null);
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (currentMapId) {
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_SHARING.INITIATED,
+        event_data: { map_id: currentMapId }
+      });
       setShowShare(true);
     }
   };
@@ -119,19 +152,19 @@ export function QuickUpload() {
   return (
     <section id="quick-upload">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">
             Create Your Map in Seconds
           </h2>
-          <p className="text-xl text-secondary max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-secondary max-w-2xl mx-auto">
             Upload your CSV file and get an interactive map instantly. No sign-up required.
           </p>
         </div>
 
         <div className="bg-background-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
           {/* Progress Steps */}
-          <div className="border-b px-8 py-4 bg-gray-50/50">
-            <div className="flex items-center justify-center gap-4">
+          <div className="border-b px-4 sm:px-8 py-4 bg-gray-50/50">
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2 sm:gap-4">
               {[
                 { key: 'initial', label: 'Upload CSV' },
                 { key: 'preview', label: 'Preview Map' },
@@ -170,7 +203,7 @@ export function QuickUpload() {
                   </div>
                   {index < 2 && (
                     <ArrowRight className={cn(
-                      "w-4 h-4",
+                      "w-4 h-4 hidden sm:block",
                       uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
                         ? "text-green-600"
                         : "text-gray-300"
@@ -182,10 +215,10 @@ export function QuickUpload() {
           </div>
 
           {/* Content Area */}
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             {uploadStep === 'initial' && (
               <div className="space-y-6">
-                <FileUpload 
+                <FileUpload
                   onFileSelect={handleFileSelect}
                   className="border-2 border-dashed border-accent/20 hover:border-accent/40 rounded-xl p-8 transition-colors"
                 />
@@ -219,19 +252,19 @@ export function QuickUpload() {
             {uploadStep === 'preview' && members.length > 0 && center && (
               <div className="space-y-6">
                 <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
-                  <Map 
+                  <Map
                     members={members}
                     center={center}
                     isLoading={isLoading}
                     hideShareButton={true}
                   />
                 </div>
-                <div className="flex flex-col items-center gap-4">
-                  <Button 
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <Button
                     variant="primary"
                     onClick={handleDownloadMap}
                     disabled={isLoading}
-                    className="min-w-[200px] text-lg"
+                    className="w-full sm:w-auto sm:min-w-[200px] text-lg"
                   >
                     {isLoading ? 'Generating Map...' : (
                       <div className="flex items-center gap-2">
@@ -240,11 +273,11 @@ export function QuickUpload() {
                       </div>
                     )}
                   </Button>
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={handleReset}
                     disabled={isLoading}
-                    className="text-sm text-gray-500 hover:text-gray-700"
+                    className="w-full sm:w-auto text-sm text-gray-500 hover:text-gray-700"
                   >
                     Upload Different File
                   </Button>
@@ -284,7 +317,7 @@ export function QuickUpload() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex justify-center gap-4">
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
                       <Button 
                         variant="primary"
                         onClick={handleShare}
@@ -294,7 +327,7 @@ export function QuickUpload() {
                         Share Map
                       </Button>
                       <Button 
-                        variant="secondary"
+                        variant="outline"
                         onClick={handleReset}
                       >
                         Create Another Map
@@ -319,7 +352,7 @@ export function QuickUpload() {
                         Your map is ready to be shared with your community.
                       </p>
                     </div>
-                    <div className="flex justify-center gap-4">
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
                       <Button 
                         variant="primary"
                         onClick={handleShare}
@@ -329,7 +362,7 @@ export function QuickUpload() {
                         Share Map
                       </Button>
                       <Button 
-                        variant="secondary"
+                        variant="outline"
                         onClick={handleReset}
                       >
                         Create Another Map

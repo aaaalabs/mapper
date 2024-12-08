@@ -5,6 +5,7 @@ import { Overlay } from '../ui/Overlay';
 import { OverlayContent } from '../ui/OverlayContent';
 import { OverlayFooter } from '../ui/OverlayFooter';
 import { scrollToElement } from '../../utils/scrollUtils';
+import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 
 export function FeatureComparison() {
   const [showBetaForm, setShowBetaForm] = useState(false);
@@ -16,13 +17,20 @@ export function FeatureComparison() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleUploadClick = () => {
+    trackEvent({
+      event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
+      event_data: { source: 'feature_comparison' }
+    });
     scrollToElement('map-upload', 80);
   };
 
   const handleBetaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    trackEvent({
+      event_name: 'beta_signup',
+      event_data: { ...formData }
+    });
     // Here you would typically send the data to your backend
-    console.log('Beta signup:', formData);
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
@@ -30,28 +38,6 @@ export function FeatureComparison() {
       setFormData({ firstName: '', email: '', communityLink: '' });
     }, 2000);
   };
-
-  const features = [
-    {
-      name: "Community Map Creation",
-      description: "Upload your CSV and create an interactive map",
-      free: true,
-      beta: true
-    },
-    {
-      name: "Share & Embed",
-      description: "Share your map via link or embed it on your website",
-      free: true,
-      beta: true
-    },
-    {
-      name: "Custom Branding",
-      description: "Remove VoiceLoop branding or add your own logo",
-      free: false,
-      beta: true,
-      highlight: true
-    }
-  ];
 
   return (
     <div id="beta-features" className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">

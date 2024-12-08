@@ -1,28 +1,69 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { cn } from '../utils/cn';
+import { Upload, AlertCircle, CheckCircle2, FileDown } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
   className?: string;
 }
 
+interface FileError {
+  type: 'format' | 'size' | 'empty' | 'columns' | 'process';
+  message: string;
+}
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const REQUIRED_COLUMNS = ['name', 'location', 'latitude', 'longitude'];
+
 export function FileUpload({ onFileSelect, className }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FileError | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  const validateFile = (file: File): boolean => {
+  const validateFile = async (file: File): Promise<boolean> => {
     setError(null);
     
-    if (file.type !== "text/csv") {
-      setError("Please upload a CSV file");
+    if (!file) {
+      setError({ type: 'empty', message: "No file selected" });
       return false;
     }
     
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      setError("File size should be less than 5MB");
+    if (!file.type && !file.name.endsWith('.csv')) {
+      setError({ type: 'format', message: "Please upload a CSV file" });
+      return false;
+    }
+    
+    if (file.size > MAX_FILE_SIZE) {
+      setError({ 
+        type: 'size', 
+        message: `File size should be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` 
+      });
+      return false;
+    }
+
+    try {
+      // Check CSV structure
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+      
+      if (lines.length < 2) {
+        setError({ type: 'empty', message: "CSV file is empty" });
+        return false;
+      }
+
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
+
+      if (missingColumns.length > 0) {
+        setError({
+          type: 'columns',
+          message: `Missing required columns: ${missingColumns.join(', ')}`
+        });
+        return false;
+      }
+    } catch (err) {
+      setError({ type: 'process', message: "Failed to read CSV file" });
       return false;
     }
     
@@ -42,18 +83,19 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
   }, []);
 
   const processFile = async (file: File) => {
-    if (!validateFile(file)) return;
-    
     setIsUploading(true);
     setUploadSuccess(false);
     
     try {
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      onFileSelect(file);
-      setUploadSuccess(true);
+      if (await validateFile(file)) {
+        onFileSelect(file);
+        setUploadSuccess(true);
+      }
     } catch (err) {
-      setError("Error processing file. Please try again.");
+      setError({ 
+        type: 'process', 
+        message: "Error processing file. Please try again." 
+      });
     } finally {
       setIsUploading(false);
     }
@@ -108,9 +150,14 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
           <Upload className={cn("h-8 w-8", isDragging ? "text-accent" : "text-tertiary")} />
         )}
         
-        <div>
+        <div className="text-center">
           {error ? (
-            <p className="text-sm text-red-600 font-medium">{error}</p>
+            <>
+              <p className="text-sm text-red-600 font-medium mb-1">{error.message}</p>
+              <p className="text-xs text-red-500">
+                {error.type === 'columns' && "Download the sample CSV for reference"}
+              </p>
+            </>
           ) : uploadSuccess ? (
             <p className="text-sm text-green-600 font-medium">File uploaded successfully!</p>
           ) : (
@@ -127,7 +174,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
       </label>
 
       {isUploading && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-secondary">Processing file...</p>
