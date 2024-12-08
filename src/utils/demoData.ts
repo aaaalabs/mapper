@@ -122,3 +122,63 @@ export const communityExamples = [
     members: demoMembers,
   }
 ];
+
+// Types for dashboard data
+export interface FeatureEngagementData {
+  feature: string;
+  click_count: number;
+  unique_users: number;
+  time_spent: number; // in minutes
+}
+
+export interface DashboardData {
+  conversionData: Array<{
+    day: string;
+    started: number;
+    completed: number;
+    shared: number;
+    downloaded: number;
+  }>;
+  featureEngagement: FeatureEngagementData[];
+  errorTracking: Array<{
+    timestamp: string;
+    error: string;
+    count: number;
+  }>;
+  userJourney: Array<{
+    step: string;
+    count: number;
+  }>;
+  landingPageMetrics: Array<{
+    page: string;
+    views: number;
+    conversions: number;
+  }>;
+}
+
+export function generateMockDashboardData(startDate: Date, endDate: Date): DashboardData {
+  const features = [
+    'Map Creation',
+    'Location Search',
+    'Style Customization',
+    'Share Map',
+    'Export Map',
+    'Add Markers',
+    'Draw Routes'
+  ];
+
+  const featureEngagement: FeatureEngagementData[] = features.map(feature => ({
+    feature,
+    click_count: Math.floor(Math.random() * 1000) + 100,
+    unique_users: Math.floor(Math.random() * 500) + 50,
+    time_spent: Math.floor(Math.random() * 120) + 10 // 10-130 minutes
+  }));
+
+  return {
+    conversionData: [],
+    featureEngagement,
+    errorTracking: [],
+    userJourney: [],
+    landingPageMetrics: []
+  };
+}

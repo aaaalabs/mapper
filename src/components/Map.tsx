@@ -92,7 +92,7 @@ export const Map = forwardRef<HTMLDivElement, MapProps>(({
 
   const handleMarkerClick = (member: CommunityMember) => {
     trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_MARKER_CLICK,
+      event_name: ANALYTICS_EVENTS.MAP_INTERACTION.MARKER_CLICK,
       event_data: { member_name: member.name }
     });
   };
