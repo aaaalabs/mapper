@@ -259,7 +259,7 @@ export function QuickUpload() {
                     hideShareButton={true}
                   />
                 </div>
-                <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                   <Button
                     variant="primary"
                     onClick={handleDownloadMap}
