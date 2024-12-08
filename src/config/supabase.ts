@@ -1,16 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Validate environment variables early
-if (!supabaseUrl?.startsWith('https://')) {
-  throw new Error('Invalid VITE_SUPABASE_URL format');
-}
-
-if (!supabaseAnonKey?.includes('.')) {
-  throw new Error('Invalid VITE_SUPABASE_ANON_KEY format');
-}
+// Try both Vite and process.env formats
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 // Debug logging
 console.log('Environment & Supabase initialization:', {
@@ -23,6 +15,25 @@ console.log('Environment & Supabase initialization:', {
   url: supabaseUrl,
   keyLength: supabaseAnonKey?.length
 });
+
+// Validate environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    viteEnv: !!import.meta.env.VITE_SUPABASE_URL,
+    processEnv: !!process.env.VITE_SUPABASE_URL
+  });
+  throw new Error('Missing Supabase environment variables');
+}
+
+if (!supabaseUrl.startsWith('https://')) {
+  throw new Error('Invalid SUPABASE_URL format');
+}
+
+if (!supabaseAnonKey.includes('.')) {
+  throw new Error('Invalid SUPABASE_ANON_KEY format');
+}
 
 // Create singleton instance
 let instance: SupabaseClient | null = null;
