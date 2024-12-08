@@ -116,9 +116,12 @@ export const Map = forwardRef<HTMLDivElement, MapProps>(({
 
   useEffect(() => {
     if (members.length > 0) {
+      // Wrap analytics in try-catch to prevent map from breaking
       trackEvent({
         event_name: ANALYTICS_EVENTS.MAP_INTERACTION.VIEW,
         event_data: { members_count: members.length }
+      }).catch(err => {
+        console.warn('Analytics failed but map continues:', err);
       });
     }
   }, [members]);

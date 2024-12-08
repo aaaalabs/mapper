@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../config/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 // Analytics event categories
@@ -49,7 +49,30 @@ export const trackEvent = async ({ event_name, event_data = {} }: TrackEventPara
   try {
     const sessionId = getSessionId();
     
-    const { error } = await supabase
+    // Add debug logging
+    console.log('Attempting to track event:', { 
+      event_name, 
+      event_data,
+      sessionId,
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+      hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+      keyLength: import.meta.env.VITE_SUPABASE_ANON_KEY?.length
+    });
+    
+    // Test Supabase connection before insert
+    const { data: testData, error: testError } = await supabase
+      .from('map_analytics_events')
+      .select('id')
+      .limit(1);
+      
+    if (testError) {
+      console.error('Supabase connection test failed:', testError);
+      return;
+    }
+    
+    console.log('Supabase connection test succeeded:', testData);
+    
+    const { data, error } = await supabase
       .from('map_analytics_events')
       .insert({
         event_name,
@@ -58,13 +81,17 @@ export const trackEvent = async ({ event_name, event_data = {} }: TrackEventPara
       });
 
     if (error) {
-      console.error('Failed to track event:', error);
+      console.error('Failed to track event:', {
+        error,
+        errorMessage: error.message,
+        errorDetails: error.details,
+        errorHint: error.hint
+      });
+    } else {
+      console.log('Successfully tracked event:', data);
     }
   } catch (err) {
-    // Fail silently in production, log in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Analytics error:', err);
-    }
+    console.error('Analytics error:', err);
   }
 };
 
