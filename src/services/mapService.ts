@@ -166,26 +166,50 @@ export async function saveMap(mapData: Omit<SavedMap, 'id' | 'created_at'>): Pro
 }
 
 export async function getMap(id: string): Promise<SavedMap> {
+  if (!id) {
+    throw new MapError('Map ID is required');
+  }
+
   try {
-    const { data, error } = await supabase
+    // First try to get the map data
+    const { data: mapData, error: mapError } = await supabase
       .from('maps')
-      .select('*')
+      .select(`
+        id,
+        name,
+        members,
+        center,
+        zoom,
+        created_at,
+        user_id
+      `)
       .eq('id', id)
       .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
+    if (mapError) {
+      console.error('Supabase error:', mapError);
+      if (mapError.code === 'PGRST116') {
+        throw new MapError('Map not found', 'NOT_FOUND');
+      }
       throw new MapError(
-        error.message,
-        error.code
+        mapError.message,
+        mapError.code
       );
     }
 
-    if (!data) {
-      throw new MapError('Map not found');
+    if (!mapData) {
+      throw new MapError('Map not found', 'NOT_FOUND');
     }
 
-    return data;
+    // Validate the map data structure
+    if (!Array.isArray(mapData.members) || !Array.isArray(mapData.center) || typeof mapData.zoom !== 'number') {
+      throw new MapError('Invalid map data format');
+    }
+
+    return {
+      ...mapData,
+      created_at: new Date(mapData.created_at)
+    };
   } catch (error) {
     if (error instanceof MapError) {
       throw error;

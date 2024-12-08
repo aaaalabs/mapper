@@ -24,20 +24,22 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
       {/* Modal Content */}
       <div 
         className={cn(
-          "relative bg-white rounded-lg shadow-lg w-full max-w-md mx-4 p-6",
+          "relative bg-background rounded-lg shadow-lg w-full max-w-md mx-4 p-6",
           "transform transition-all",
           "animate-in fade-in zoom-in-95 duration-200",
+          "border border-border",
           className
         )}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>

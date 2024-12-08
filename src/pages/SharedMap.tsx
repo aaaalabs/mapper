@@ -18,7 +18,7 @@ export function SharedMap() {
   useEffect(() => {
     async function loadMap() {
       if (!id) {
-        setError('No map ID provided');
+        setError('Invalid map link. Please check the URL and try again.');
         setIsLoading(false);
         return;
       }
@@ -28,9 +28,13 @@ export function SharedMap() {
         setMapData(data);
       } catch (err) {
         if (err instanceof MapError) {
-          setError(err.message);
+          if (err.code === 'NOT_FOUND') {
+            setError('This map could not be found. It may have been deleted or the link might be incorrect.');
+          } else {
+            setError(err.message);
+          }
         } else {
-          setError('Failed to load map');
+          setError('Unable to load the map. Please try again later.');
         }
         console.error('Error loading map:', err);
       } finally {
@@ -43,20 +47,38 @@ export function SharedMap() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Globe className="w-12 h-12 text-accent animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading shared map...</p>
+          <p className="text-muted-foreground">Loading shared map...</p>
         </div>
       </div>
     );
   }
 
-  if (error || !mapData) {
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center max-w-md mx-auto px-4">
+          <Globe className="w-12 h-12 text-accent mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Oops!</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <a 
+            href="/"
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+          >
+            Return Home
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mapData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 font-medium">{error || 'Map not found'}</p>
+          <p className="text-red-600 font-medium">Map not found</p>
           <a href="/" className="text-accent hover:text-accent-dark mt-4 block">
             Return to home
           </a>
