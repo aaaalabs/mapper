@@ -14,6 +14,17 @@
     --color-accent-alt: #F99D7C;
   }
 
+  .dark {
+    --color-primary: #F3EDE5;
+    --color-secondary: #F2E2CE;
+    --color-tertiary: #A3A692;
+    --color-background: #1D3640;
+    --color-background-alt: #3D4F4F;
+    --color-background-white: #3D4F4F;
+    --color-accent: #E9B893;
+    --color-accent-alt: #F99D7C;
+  }
+
   html {
     scroll-behavior: smooth;
   }

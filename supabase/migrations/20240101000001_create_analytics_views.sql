@@ -1,5 +1,5 @@
 -- Conversion Funnel View
-CREATE VIEW map_analytics_conversion_funnel AS
+CREATE OR REPLACE VIEW map_analytics_conversion_funnel AS
 WITH funnel_stages AS (
   SELECT
     date_trunc('day', timestamp) as day,
@@ -23,7 +23,7 @@ FROM funnel_stages
 ORDER BY day DESC;
 
 -- Feature Interest View
-CREATE VIEW map_analytics_feature_engagement AS
+CREATE OR REPLACE VIEW map_analytics_feature_engagement AS
 WITH feature_times AS (
   SELECT
     session_id,
@@ -55,7 +55,7 @@ GROUP BY ft.feature_name
 ORDER BY click_count DESC;
 
 -- Error Analysis View
-CREATE VIEW map_analytics_error_tracking AS
+CREATE OR REPLACE VIEW map_analytics_error_tracking AS
 SELECT
   date_trunc('hour', timestamp) as hour,
   (event_data->'error'->>'name') as error_name,
@@ -74,7 +74,7 @@ GROUP BY
 ORDER BY hour DESC;
 
 -- User Journey Analysis
-CREATE VIEW map_analytics_user_journey AS
+CREATE OR REPLACE VIEW map_analytics_user_journey AS
 WITH journey_steps AS (
   SELECT
     session_id,
@@ -98,7 +98,7 @@ WHERE session_duration_seconds > 0
 GROUP BY date_trunc('day', session_start);
 
 -- Landing Page Engagement
-CREATE VIEW map_analytics_landing_page_engagement AS
+CREATE OR REPLACE VIEW map_analytics_landing_page_engagement AS
 SELECT
   date_trunc('hour', timestamp) as hour,
   COUNT(DISTINCT session_id) FILTER (WHERE event_name = 'demo_map_interaction') as demo_interactions,
@@ -112,4 +112,53 @@ SELECT
   ), 2) as cta_click_rate
 FROM map_analytics_events
 GROUP BY date_trunc('hour', timestamp)
-ORDER BY hour DESC; 
+ORDER BY hour DESC;
+
+-- Add feedback analytics views
+CREATE OR REPLACE VIEW map_feedback_metrics AS
+SELECT
+  DATE_TRUNC('day', created_at) as date,
+  COUNT(*) as total_feedback,
+  AVG(satisfaction_rating) as avg_rating,
+  COUNT(CASE WHEN satisfaction_rating >= 4 THEN 1 END) as positive_ratings,
+  COUNT(CASE WHEN satisfaction_rating < 4 THEN 1 END) as negative_ratings,
+  COUNT(CASE WHEN can_feature = true THEN 1 END) as potential_testimonials,
+  COUNT(CASE WHEN testimonial IS NOT NULL THEN 1 END) as detailed_feedback
+FROM map_feedback
+GROUP BY DATE_TRUNC('day', created_at)
+ORDER BY date DESC;
+
+CREATE OR REPLACE VIEW map_feedback_by_use_case AS
+SELECT
+  use_case,
+  COUNT(*) as count,
+  AVG(satisfaction_rating) as avg_rating,
+  COUNT(CASE WHEN can_feature = true THEN 1 END) as potential_testimonials
+FROM map_feedback
+WHERE use_case IS NOT NULL
+GROUP BY use_case
+ORDER BY count DESC;
+
+CREATE OR REPLACE VIEW map_feedback_pain_points AS
+SELECT
+  use_case,
+  testimonial,
+  satisfaction_rating,
+  created_at
+FROM map_feedback
+WHERE satisfaction_rating < 4
+  AND testimonial IS NOT NULL
+ORDER BY created_at DESC;
+
+CREATE OR REPLACE VIEW map_potential_testimonials AS
+SELECT
+  testimonial,
+  satisfaction_rating,
+  use_case,
+  organization_name,
+  created_at
+FROM map_feedback
+WHERE can_feature = true
+  AND testimonial IS NOT NULL
+  AND satisfaction_rating >= 4
+ORDER BY created_at DESC; 

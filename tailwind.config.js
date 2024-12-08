@@ -6,6 +6,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -20,7 +21,7 @@ export default {
         accent: {
           DEFAULT: 'var(--color-accent)',
           alt: 'var(--color-accent-alt)',
-        },
+        }
       },
       keyframes: {
         "fade-in": {
@@ -38,7 +39,5 @@ export default {
       }
     },
   },
-  plugins: [
-    require("tailwindcss-animate")
-  ],
+  plugins: [animate],
 }

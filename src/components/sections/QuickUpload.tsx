@@ -16,7 +16,17 @@ import { saveMap, trackMapDownload } from '../../services/mapService';
 import { ShareModal } from '../ShareModal';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 
-export function QuickUpload() {
+interface QuickUploadProps {
+  onMapCreated: (mapId: string) => void;
+}
+
+const STEPS = [
+  { key: 'initial', label: 'Upload' },
+  { key: 'preview', label: 'Preview' },
+  { key: 'success', label: 'Download' }
+];
+
+export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<CommunityMember[]>([]);
@@ -25,7 +35,6 @@ export function QuickUpload() {
   const [uploadStep, setUploadStep] = useState<'initial' | 'preview' | 'success'>('initial');
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [quickRating, setQuickRating] = useState<number | null>(null);
   const [showShare, setShowShare] = useState(false);
 
   const handleFileSelect = async (file: File) => {
@@ -101,6 +110,8 @@ export function QuickUpload() {
         await trackMapDownload(savedMap.id);
         setUploadStep('success');
 
+        setTimeout(() => setShowFeedback(true), 1000);
+
         await trackEvent({
           event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
           event_data: { map_id: savedMap.id }
@@ -117,18 +128,6 @@ export function QuickUpload() {
     }
   };
 
-  const handleQuickRating = async (rating: number) => {
-    setQuickRating(rating);
-    await trackEvent({
-      event_name: ANALYTICS_EVENTS.FEEDBACK.RATING,
-      event_data: { rating, map_id: currentMapId }
-    });
-    
-    if (rating >= 4) {
-      setTimeout(() => setShowFeedback(true), 500);
-    }
-  };
-
   const handleReset = () => {
     setMembers([]);
     setCenter(null);
@@ -136,7 +135,6 @@ export function QuickUpload() {
     setError(null);
     setCurrentMapId(null);
     setShowFeedback(false);
-    setQuickRating(null);
   };
 
   const handleShare = async () => {
@@ -153,33 +151,29 @@ export function QuickUpload() {
     <section id="quick-upload">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8 sm:mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-primary dark:text-dark-primary">
             Create Your Map in Seconds
           </h2>
-          <p className="text-base sm:text-lg text-secondary max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-secondary dark:text-dark-secondary max-w-2xl mx-auto">
             Upload your CSV file and get an interactive map instantly. No sign-up required.
           </p>
         </div>
 
-        <div className="bg-background-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+        <div className="bg-background-white dark:bg-background-dark rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-800">
           {/* Progress Steps */}
-          <div className="border-b px-4 sm:px-8 py-4 bg-gray-50/50">
+          <div className="border-b border-gray-100 dark:border-gray-800 px-4 sm:px-8 py-4 bg-gray-50/50 dark:bg-gray-900/50">
             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2 sm:gap-4">
-              {[
-                { key: 'initial', label: 'Upload CSV' },
-                { key: 'preview', label: 'Preview Map' },
-                { key: 'success', label: 'Download Map' }
-              ].map((step, index) => (
+              {STEPS.map((step, index) => (
                 <React.Fragment key={step.key}>
                   <div className="flex items-center gap-2">
                     <div 
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
                         uploadStep === step.key
-                          ? "bg-accent text-white"
+                          ? "bg-accent text-white dark:bg-accent-dark"
                           : uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
-                            ? "bg-green-100 text-green-600"
-                            : "bg-gray-100 text-gray-400"
+                            ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400"
+                            : "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500"
                       )}
                     >
                       {uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep)) ? (
@@ -192,21 +186,21 @@ export function QuickUpload() {
                       className={cn(
                         "text-sm font-medium",
                         uploadStep === step.key
-                          ? "text-accent"
+                          ? "text-accent dark:text-accent-dark"
                           : uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
-                            ? "text-green-600"
-                            : "text-gray-400"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {step.label}
                     </span>
                   </div>
-                  {index < 2 && (
+                  {index < STEPS.length - 1 && (
                     <ArrowRight className={cn(
                       "w-4 h-4 hidden sm:block",
                       uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
-                        ? "text-green-600"
-                        : "text-gray-300"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-gray-300 dark:text-gray-700"
                     )} />
                   )}
                 </React.Fragment>
@@ -220,20 +214,20 @@ export function QuickUpload() {
               <div className="space-y-6">
                 <FileUpload
                   onFileSelect={handleFileSelect}
-                  className="border-2 border-dashed border-accent/20 hover:border-accent/40 rounded-xl p-8 transition-colors"
+                  className="border-2 border-dashed border-accent/20 dark:border-accent-dark/20 hover:border-accent/40 dark:hover:border-accent-dark/40 rounded-xl p-8 transition-colors"
                 />
 
                 {error && (
-                  <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
 
-                <div className="flex items-center justify-center gap-3 text-sm text-tertiary">
+                <div className="flex items-center justify-center gap-3 text-sm text-tertiary dark:text-dark-tertiary">
                   <button 
                     onClick={handleDownloadDemo}
-                    className="hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="hover:text-accent dark:hover:text-accent-dark transition-colors inline-flex items-center gap-1"
                   >
                     <FileDown className="w-4 h-4" />
                     Download sample CSV
@@ -241,7 +235,7 @@ export function QuickUpload() {
                   <span>·</span>
                   <button 
                     onClick={() => setShowFormatGuide(true)}
-                    className="hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="hover:text-accent dark:hover:text-accent-dark transition-colors inline-flex items-center gap-1"
                   >
                     View formatting guide
                   </button>
@@ -287,69 +281,25 @@ export function QuickUpload() {
 
             {uploadStep === 'success' && (
               <div className="text-center space-y-6">
-                {!quickRating ? (
-                  // Quick Rating Step
-                  <>
-                    <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
-                      <CheckCircle2 className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2">Your Map is Ready!</h3>
-                      <p className="text-gray-600 mb-6">
-                        How was your experience creating the map?
-                      </p>
-                      <div className="flex justify-center gap-2 mb-6">
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            onClick={() => handleQuickRating(rating)}
-                            className={cn(
-                              "w-10 h-10 rounded-full flex items-center justify-center text-sm transition-colors",
-                              "hover:bg-accent hover:text-white",
-                              "border-2",
-                              quickRating === rating
-                                ? "border-accent bg-accent text-white"
-                                : "border-gray-200 text-gray-600"
-                            )}
-                          >
-                            {rating}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row justify-center gap-4">
-                      <Button 
-                        variant="primary"
-                        onClick={handleShare}
-                        className="flex items-center gap-2"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        Share Map
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={handleReset}
-                      >
-                        Create Another Map
-                      </Button>
-                    </div>
-                  </>
-                ) : showFeedback && currentMapId ? (
-                  // Detailed Feedback Form (only for high ratings)
+                {showFeedback && currentMapId ? (
+                  // Single Feedback Form
                   <FeedbackForm 
                     mapId={currentMapId}
-                    onClose={handleReset}
+                    onClose={() => {
+                      setShowFeedback(false);
+                      handleReset();
+                    }}
                   />
                 ) : (
-                  // Thank You Step
+                  // Thank You Step with Share/Reset buttons
                   <>
-                    <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
                       <CheckCircle2 className="w-8 h-8" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold mb-2">Thanks for your feedback!</h3>
-                      <p className="text-gray-600 mb-6">
-                        Your map is ready to be shared with your community.
+                      <h3 className="text-xl font-semibold mb-2 text-primary dark:text-dark-primary">Your Map is Ready!</h3>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        Your map has been downloaded and is ready to be shared.
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">

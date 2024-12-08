@@ -8,6 +8,18 @@ import { InsightsDashboard } from './pages/InsightsDashboard.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
+// Initialize theme
+const initTheme = () => {
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    document.documentElement.classList.add('dark');
+  }
+};
+
+initTheme();
+
 const router = createBrowserRouter([
   {
     path: '/',
