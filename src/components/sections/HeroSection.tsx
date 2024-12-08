@@ -79,7 +79,7 @@ export function HeroSection() {
         Transform Your Skool Community
         <br className="hidden sm:block" />
         <span className="gradient-text">
-          Into An Interactive Map
+          {' '}Into An Interactive Map
         </span>
       </h1>
 

@@ -20,32 +20,65 @@ export function Header() {
             </a>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8">
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-8">
             <a href="#features" className="text-gray-600 hover:text-gray-900">Features</a>
             <a href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
             <DemoCallButton />
             <Button variant="primary" size="sm" onClick={() => window.location.href = '#quick-upload'}>Get Started</Button>
           </nav>
 
+          {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2"
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
+            aria-expanded={isMenuOpen}
           >
-            {isMenuOpen ? <X /> : <Menu />}
+            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
       </div>
 
-      {isMenuOpen && (
-        <div className="md:hidden border-t border-gray-100">
-          <div className="px-4 py-2 space-y-1">
-            <a href="#features" className="block py-2 text-gray-600 hover:text-gray-900">Features</a>
-            <a href="#pricing" className="block py-2 text-gray-600 hover:text-gray-900">Pricing</a>
+      {/* Mobile menu */}
+      <div 
+        className={`lg:hidden transition-all duration-300 ease-in-out ${
+          isMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+        }`}
+      >
+        <div className="px-4 py-3 space-y-3 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+          <a 
+            href="#features" 
+            className="block py-2.5 px-3 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Features
+          </a>
+          <a 
+            href="#pricing" 
+            className="block py-2.5 px-3 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Pricing
+          </a>
+          <div className="px-3">
             <DemoCallButton />
-            <Button variant="primary" size="sm" className="w-full mt-4" onClick={() => window.location.href = '#quick-upload'}>Get Started</Button>
+          </div>
+          <div className="px-3 pt-2">
+            <Button 
+              variant="primary" 
+              size="sm" 
+              className="w-full justify-center"
+              onClick={() => {
+                window.location.href = '#quick-upload';
+                setIsMenuOpen(false);
+              }}
+            >
+              Get Started
+            </Button>
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }
