@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 interface LoginModalProps {
@@ -13,30 +14,87 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="p-6 rounded-lg max-w-md w-full mx-4 bg-background">
-        <h3 className="text-xl font-bold mb-4 text-primary">Beta Access Login</h3>
-        <input 
-          type="email" 
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          className="w-full p-2 border rounded mb-3 bg-background-white"
-        />
-        <input 
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          className="w-full p-2 border rounded mb-4 bg-background-white"
-        />
-        <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary">
-            Login
-          </Button>
+    <div className="fixed inset-0 z-[100] overflow-y-auto">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"
+        onClick={onClose}
+      />
+
+      {/* Modal Container */}
+      <div className="relative flex min-h-full items-center justify-center p-4">
+        <div className="relative w-full max-w-md transform rounded-lg bg-white p-6 text-left shadow-xl transition-all">
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Modal Content */}
+          <div className="space-y-4">
+            <div className="text-center">
+              <h3 className="text-xl font-semibold text-gray-900">Beta Access Login</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Enter your credentials to access beta features
+              </p>
+            </div>
+
+            <form className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <a href="#" className="font-medium text-accent hover:text-accent-alt">
+                    Forgot password?
+                  </a>
+                </div>
+                <div className="text-sm">
+                  <a href="#" className="font-medium text-accent hover:text-accent-alt">
+                    Request access
+                  </a>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Handle login logic here
+                }}
+              >
+                Sign in
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

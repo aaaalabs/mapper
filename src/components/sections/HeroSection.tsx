@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { MapShowcase } from '../MapShowcase';
+import { Map } from '../Map';
 import { generateDemoMembers } from '../../utils/demoData';
 import { calculateMapCenter } from '../../utils/mapUtils';
 import { CommunityMember } from '../../types';
-import { Map } from '../Map';
 
 export function HeroSection() {
   const [demoMembers, setDemoMembers] = useState<CommunityMember[]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
-  const [showExamples, setShowExamples] = useState(false);
 
   useEffect(() => {
     const members = generateDemoMembers(50);
     setDemoMembers(members);
     setMapCenter(calculateMapCenter(members));
   }, []);
+
+  const scrollToUpload = () => {
+    const uploadSection = document.querySelector('#quick-upload');
+    if (uploadSection) {
+      uploadSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <div className="text-center">
@@ -35,42 +40,34 @@ export function HeroSection() {
       </h1>
 
       <p className="text-xl mx-auto mb-8 text-secondary max-w-2xl">
-        Get started instantly with CSV upload or join the beta for advanced features.
+        Get started instantly with CSV upload or explore our interactive demo below.
       </p>
 
-      <div className="rounded-xl p-4 mb-12 bg-background-white">
+      <div className="rounded-xl p-4 mb-8 bg-background-white">
         <div className="aspect-video rounded-lg overflow-hidden mb-4">
           {demoMembers.length > 0 && mapCenter && (
-            showExamples ? (
-              <MapShowcase 
-                members={demoMembers}
-                center={mapCenter}
-                isVisible={showExamples}
-                onClose={() => setShowExamples(false)}
-              />
-            ) : (
-              <Map 
-                members={demoMembers}
-                center={mapCenter}
-              />
-            )
+            <Map 
+              members={demoMembers}
+              center={mapCenter}
+              zoom={2}
+            />
           )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button variant="primary" className="flex items-center justify-center gap-2">
-            View Live Demo Map
+        <div className="flex justify-center gap-4">
+          <Button 
+            variant="primary" 
+            className="flex items-center justify-center gap-2"
+            onClick={scrollToUpload}
+          >
+            Create Your Map
             <ArrowRight className="h-5 w-5" />
           </Button>
-          {!showExamples && (
-            <Button 
-              variant="secondary"
-              onClick={() => setShowExamples(true)}
-            >
-              See More Examples
-            </Button>
-          )}
         </div>
       </div>
+
+      <p className="text-sm text-tertiary">
+        ⚡️ No sign-up required • Free to use • Export and embed anywhere
+      </p>
     </div>
   );
 }

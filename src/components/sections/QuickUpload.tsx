@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileDown, AlertCircle, Table } from 'lucide-react';
+import { FileDown, AlertCircle, CheckCircle2, ArrowRight, Share2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { FileUpload } from '../FileUpload';
 import { Map } from '../Map';
@@ -10,6 +10,10 @@ import { calculateMapCenter } from '../../utils/mapUtils';
 import { CommunityMember } from '../../types';
 import { Overlay } from '../ui/Overlay';
 import { OverlayContent } from '../ui/OverlayContent';
+import { cn } from '../../lib/utils';
+import { FeedbackForm } from '../FeedbackForm';
+import { saveMap, trackMapDownload } from '../../services/mapService';
+import { ShareModal } from '../ShareModal';
 
 export function QuickUpload() {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,19 +21,25 @@ export function QuickUpload() {
   const [members, setMembers] = useState<CommunityMember[]>([]);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const [showFormatGuide, setShowFormatGuide] = useState(false);
+  const [uploadStep, setUploadStep] = useState<'initial' | 'preview' | 'success'>('initial');
+  const [currentMapId, setCurrentMapId] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  // Quick feedback before full form
+  const [quickRating, setQuickRating] = useState<number | null>(null);
+
+  const [showShare, setShowShare] = useState(false);
 
   const handleFileSelect = async (file: File) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Parse CSV file
       const parsedMembers = await parseCsvFile(file);
       setMembers(parsedMembers);
-
-      // Calculate map center
       const mapCenter = calculateMapCenter(parsedMembers);
       setCenter(mapCenter);
+      setUploadStep('preview');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process CSV file');
     } finally {
@@ -50,85 +60,288 @@ export function QuickUpload() {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleDownloadMap = () => {
+  const handleDownloadMap = async () => {
     if (members.length > 0 && center) {
-      const html = generateStandaloneHtml(members, center, {
-        markerStyle: 'pins',
-        enableSearch: false,
-        enableFullscreen: true,
-        enableSharing: false,
-        enableClustering: true
-      });
-      downloadHtmlFile(html, 'community-map.html');
+      try {
+        setIsLoading(true);
+        
+        const savedMap = await saveMap({
+          name: 'Community Map',
+          members,
+          center,
+          zoom: 2
+        });
+        
+        setCurrentMapId(savedMap.id);
+
+        const html = generateStandaloneHtml(members, center, {
+          markerStyle: 'default',
+          enableFullscreen: true,
+          enableSharing: true,
+          enableClustering: true
+        });
+        downloadHtmlFile(html, 'community-map.html');
+
+        await trackMapDownload(savedMap.id);
+        setUploadStep('success');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save map');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleQuickRating = (rating: number) => {
+    setQuickRating(rating);
+    if (rating >= 4) {
+      // For high ratings, show feedback form after a short delay
+      setTimeout(() => setShowFeedback(true), 500);
+    }
+  };
+
+  const handleReset = () => {
+    setMembers([]);
+    setCenter(null);
+    setUploadStep('initial');
+    setError(null);
+    setCurrentMapId(null);
+    setShowFeedback(false);
+    setQuickRating(null);
+  };
+
+  const handleShare = () => {
+    if (currentMapId) {
+      setShowShare(true);
     }
   };
 
   return (
-    <div className="rounded-xl p-8 mb-12 max-w-2xl mx-auto bg-background-white">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2 text-primary">Get Your Map Now</h2>
-        <p className="text-secondary">
-          Upload your community data to generate a downloadable HTML map instantly
-        </p>
-      </div>
+    <section id="quick-upload">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
+            Create Your Map in Seconds
+          </h2>
+          <p className="text-xl text-secondary max-w-2xl mx-auto">
+            Upload your CSV file and get an interactive map instantly. No sign-up required.
+          </p>
+        </div>
 
-      {members.length > 0 && center ? (
-        <div className="space-y-4">
-          <Map 
-            members={members}
-            center={center}
-            isLoading={isLoading}
-          />
-          <div className="flex justify-center gap-4">
-            <Button 
-              variant="primary"
-              onClick={handleDownloadMap}
-            >
-              Download Map
-            </Button>
-            <Button 
-              variant="secondary"
-              onClick={() => {
-                setMembers([]);
-                setCenter(null);
-              }}
-            >
-              Generate Another Map
-            </Button>
+        <div className="bg-background-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+          {/* Progress Steps */}
+          <div className="border-b px-8 py-4 bg-gray-50/50">
+            <div className="flex items-center justify-center gap-4">
+              {[
+                { key: 'initial', label: 'Upload CSV' },
+                { key: 'preview', label: 'Preview Map' },
+                { key: 'success', label: 'Download Map' }
+              ].map((step, index) => (
+                <React.Fragment key={step.key}>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
+                        uploadStep === step.key
+                          ? "bg-accent text-white"
+                          : uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
+                            ? "bg-green-100 text-green-600"
+                            : "bg-gray-100 text-gray-400"
+                      )}
+                    >
+                      {uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep)) ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        index + 1
+                      )}
+                    </div>
+                    <span 
+                      className={cn(
+                        "text-sm font-medium",
+                        uploadStep === step.key
+                          ? "text-accent"
+                          : uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
+                            ? "text-green-600"
+                            : "text-gray-400"
+                      )}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                  {index < 2 && (
+                    <ArrowRight className={cn(
+                      "w-4 h-4",
+                      uploadStep === 'success' || (index < ['initial', 'preview', 'success'].indexOf(uploadStep))
+                        ? "text-green-600"
+                        : "text-gray-300"
+                    )} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* Content Area */}
+          <div className="p-8">
+            {uploadStep === 'initial' && (
+              <div className="space-y-6">
+                <FileUpload 
+                  onFileSelect={handleFileSelect}
+                  className="border-2 border-dashed border-accent/20 hover:border-accent/40 rounded-xl p-8 transition-colors"
+                />
+
+                {error && (
+                  <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-center gap-3 text-sm text-tertiary">
+                  <button 
+                    onClick={handleDownloadDemo}
+                    className="hover:text-accent transition-colors inline-flex items-center gap-1"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    Download sample CSV
+                  </button>
+                  <span>·</span>
+                  <button 
+                    onClick={() => setShowFormatGuide(true)}
+                    className="hover:text-accent transition-colors inline-flex items-center gap-1"
+                  >
+                    View formatting guide
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {uploadStep === 'preview' && members.length > 0 && center && (
+              <div className="space-y-6">
+                <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
+                  <Map 
+                    members={members}
+                    center={center}
+                    isLoading={isLoading}
+                    hideShareButton={true}
+                  />
+                </div>
+                <div className="flex flex-col items-center gap-4">
+                  <Button 
+                    variant="primary"
+                    onClick={handleDownloadMap}
+                    disabled={isLoading}
+                    className="min-w-[200px] text-lg"
+                  >
+                    {isLoading ? 'Generating Map...' : (
+                      <div className="flex items-center gap-2">
+                        <FileDown className="w-5 h-5" />
+                        Download Interactive Map
+                      </div>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleReset}
+                    disabled={isLoading}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Upload Different File
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {uploadStep === 'success' && (
+              <div className="text-center space-y-6">
+                {!quickRating ? (
+                  // Quick Rating Step
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">Your Map is Ready!</h3>
+                      <p className="text-gray-600 mb-6">
+                        How was your experience creating the map?
+                      </p>
+                      <div className="flex justify-center gap-2 mb-6">
+                        {[1, 2, 3, 4, 5].map((rating) => (
+                          <button
+                            key={rating}
+                            onClick={() => handleQuickRating(rating)}
+                            className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center text-sm transition-colors",
+                              "hover:bg-accent hover:text-white",
+                              "border-2",
+                              quickRating === rating
+                                ? "border-accent bg-accent text-white"
+                                : "border-gray-200 text-gray-600"
+                            )}
+                          >
+                            {rating}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-center gap-4">
+                      <Button 
+                        variant="primary"
+                        onClick={handleShare}
+                        className="flex items-center gap-2"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share Map
+                      </Button>
+                      <Button 
+                        variant="secondary"
+                        onClick={handleReset}
+                      >
+                        Create Another Map
+                      </Button>
+                    </div>
+                  </>
+                ) : showFeedback && currentMapId ? (
+                  // Detailed Feedback Form (only for high ratings)
+                  <FeedbackForm 
+                    mapId={currentMapId}
+                    onClose={handleReset}
+                  />
+                ) : (
+                  // Thank You Step
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">Thanks for your feedback!</h3>
+                      <p className="text-gray-600 mb-6">
+                        Your map is ready to be shared with your community.
+                      </p>
+                    </div>
+                    <div className="flex justify-center gap-4">
+                      <Button 
+                        variant="primary"
+                        onClick={handleShare}
+                        className="flex items-center gap-2"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share Map
+                      </Button>
+                      <Button 
+                        variant="secondary"
+                        onClick={handleReset}
+                      >
+                        Create Another Map
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      ) : (
-        <>
-          <FileUpload 
-            onFileSelect={handleFileSelect}
-            className="border-2 border-dashed border-accent rounded-lg p-8"
-          />
-
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="mt-4 flex items-center justify-center gap-3 text-sm text-tertiary">
-            <button 
-              onClick={handleDownloadDemo}
-              className="hover:underline text-accent inline-flex items-center gap-1"
-            >
-              <FileDown className="w-4 h-4" />
-              Download sample CSV
-            </button>
-            <span>·</span>
-            <button 
-              onClick={() => setShowFormatGuide(true)}
-              className="hover:underline text-accent inline-flex items-center gap-1"
-            >
-              View formatting guide
-            </button>
-          </div>
-        </>
-      )}
+      </div>
 
       {/* CSV Formatting Guide Modal */}
       <Overlay isOpen={showFormatGuide} onClose={() => setShowFormatGuide(false)}>
@@ -204,6 +417,15 @@ export function QuickUpload() {
           </div>
         </OverlayContent>
       </Overlay>
-    </div>
+
+      <Overlay isOpen={showShare} onClose={() => setShowShare(false)}>
+        {currentMapId && (
+          <ShareModal
+            mapId={currentMapId}
+            onClose={() => setShowShare(false)}
+          />
+        )}
+      </Overlay>
+    </section>
   );
 }

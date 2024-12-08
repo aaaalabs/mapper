@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileUpload } from '../FileUpload';
-import { CommunityMap } from '../CommunityMap';
+import { Map } from '../Map';
 import { InfoBox } from '../ui/InfoBox';
 import { ErrorMessage } from '../ui/ErrorMessage';
 import { MapOptions } from '../MapOptions';
@@ -51,7 +51,12 @@ export function MapDemo() {
 
   const handleDownload = () => {
     if (members.length > 0) {
-      const html = generateStandaloneHtml(members, center, mapOptions);
+      const html = generateStandaloneHtml(members, center, {
+        markerStyle: 'default',
+        enableClustering: true,
+        enableFullscreen: true,
+        enableSharing: true
+      });
       downloadHtmlFile(html, 'community-map.html');
     }
   };
@@ -105,10 +110,10 @@ export function MapDemo() {
           ) : (
             <div className="space-y-6">
               <div className="bg-background-white rounded-lg shadow-soft p-6">
-                <CommunityMap 
-                  members={members} 
+                <Map 
+                  members={members}
                   center={center}
-                  options={mapOptions}
+                  zoom={2}
                 />
               </div>
             </div>

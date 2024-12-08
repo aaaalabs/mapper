@@ -13,7 +13,7 @@ export function Overlay({ isOpen, onClose, children, className }: OverlayProps) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[100] overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"
@@ -21,7 +21,7 @@ export function Overlay({ isOpen, onClose, children, className }: OverlayProps) 
       />
 
       {/* Content Container */}
-      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="relative flex min-h-full items-center justify-center p-4">
         <div 
           className={cn(
             "relative w-full max-w-lg transform rounded-lg bg-white p-6 text-left shadow-xl transition-all duration-300",

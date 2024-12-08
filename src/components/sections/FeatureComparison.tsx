@@ -31,6 +31,28 @@ export function FeatureComparison() {
     }, 2000);
   };
 
+  const features = [
+    {
+      name: "Community Map Creation",
+      description: "Upload your CSV and create an interactive map",
+      free: true,
+      beta: true
+    },
+    {
+      name: "Share & Embed",
+      description: "Share your map via link or embed it on your website",
+      free: true,
+      beta: true
+    },
+    {
+      name: "Custom Branding",
+      description: "Remove VoiceLoop branding or add your own logo",
+      free: false,
+      beta: true,
+      highlight: true
+    }
+  ];
+
   return (
     <div id="beta-features" className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
       <div className="p-6 rounded-lg bg-background-white flex flex-col">
@@ -43,11 +65,19 @@ export function FeatureComparison() {
           </li>
           <li className="flex items-center gap-2">
             <Check className="h-5 w-5 text-accent" />
-            <span className="text-secondary">Download interactive HTML map</span>
+            <span className="text-secondary">Interactive community map</span>
           </li>
           <li className="flex items-center gap-2">
             <Check className="h-5 w-5 text-accent" />
-            <span className="text-secondary">Basic customization options</span>
+            <span className="text-secondary">Share maps with your community</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <Check className="h-5 w-5 text-accent" />
+            <span className="text-secondary">Save maps online</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <Check className="h-5 w-5 text-accent" />
+            <span className="text-secondary">Location search</span>
           </li>
         </ul>
         <Button 
@@ -65,19 +95,23 @@ export function FeatureComparison() {
         <ul className="space-y-3 flex-grow">
           <li className="flex items-center gap-2">
             <Check className="h-5 w-5 text-accent" />
-            <span className="text-secondary">Live community maps</span>
+            <span className="text-secondary">Advanced map customization</span>
           </li>
           <li className="flex items-center gap-2">
             <Check className="h-5 w-5 text-accent" />
-            <span className="text-secondary">Member profiles & connections</span>
+            <span className="text-secondary">White-label embedding</span>
           </li>
           <li className="flex items-center gap-2">
             <Check className="h-5 w-5 text-accent" />
-            <span className="text-secondary">Local event organization</span>
+            <span className="text-secondary">Member profiles & photos</span>
           </li>
           <li className="flex items-center gap-2">
             <Check className="h-5 w-5 text-accent" />
-            <span className="text-secondary">Advanced customization</span>
+            <span className="text-secondary">Automatic data sync</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <Check className="h-5 w-5 text-accent" />
+            <span className="text-secondary">Priority support</span>
           </li>
         </ul>
         <Button 
