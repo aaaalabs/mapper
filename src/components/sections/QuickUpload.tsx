@@ -120,8 +120,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
         setCurrentMapId(savedMap.id);
         await trackMapDownload(savedMap.id);
         setUploadStep('success');
-
-        setTimeout(() => setShowFeedback(true), 1000);
+        setShowFeedback(true);
 
         await trackEvent({
           event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
@@ -245,45 +244,46 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
     if (uploadStep === 'success') {
       return (
         <div className="text-center space-y-6">
-          {showFeedback && currentMapId ? (
-            // Single Feedback Form
-            <FeedbackForm 
-              mapId={currentMapId}
-              onClose={() => {
-                setShowFeedback(false);
-                handleReset();
-              }}
-            />
-          ) : (
-            // Thank You Step with Share/Reset buttons
-            <>
-              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold mb-2 text-primary dark:text-dark-primary">Your Map is Ready!</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Your map has been downloaded and is ready to be shared.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Button 
-                  variant="primary"
-                  onClick={handleShare}
-                  className="flex items-center gap-2"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share Map
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={handleReset}
-                >
-                  Create Another Map
-                </Button>
-              </div>
-            </>
+          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2 text-primary dark:text-dark-primary">Your Map is Ready!</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Your map has been downloaded and is ready to be shared.
+            </p>
+          </div>
+          
+          {/* Feedback Form */}
+          {currentMapId && (
+            <div className="mb-8">
+              <FeedbackForm 
+                mapId={currentMapId}
+                onClose={() => {
+                  setShowFeedback(false);
+                  handleReset();
+                }}
+              />
+            </div>
           )}
+
+          {/* Share and Reset Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Button 
+              variant="primary"
+              onClick={handleShare}
+              className="flex items-center gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Map
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handleReset}
+            >
+              Create Another Map
+            </Button>
+          </div>
         </div>
       );
     }
