@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { Navigation } from './components/layout/Navigation';
 import { LoginModal } from './components/auth/LoginModal';
-import { HeroSection } from './components/sections/HeroSection';
-import { QuickUpload } from './components/sections/QuickUpload';
-import { FeatureComparison } from './components/sections/FeatureComparison';
-import { SupportSection } from './components/sections/SupportSection';
-import { TestimonialSection } from './components/sections/TestimonialSection';
 import { Footer } from './components/Footer';
 import { InsightsPage } from './pages/InsightsPage';
 import { Routes, Route } from 'react-router-dom';

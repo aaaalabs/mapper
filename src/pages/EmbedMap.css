@@ -1,0 +1,92 @@
+/* Reset styles for embed view */
+.embed-page #root {
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.embed-page .embed-root {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.embed-page .embed-map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.embed-page .embed-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: var(--color-background) !important;
+}
+
+.embed-page .embed-badge {
+  position: absolute !important;
+  bottom: 8px !important;
+  left: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 8px !important;
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  z-index: 1000 !important;
+  transition: background-color 0.2s !important;
+}
+
+.embed-page .dark .embed-badge {
+  background-color: rgba(17, 24, 39, 0.9) !important;
+}
+
+.embed-page .embed-badge:hover {
+  background-color: rgba(255, 255, 255, 1) !important;
+}
+
+.embed-page .dark .embed-badge:hover {
+  background-color: rgba(17, 24, 39, 1) !important;
+}
+
+/* Attribution Badge Styles */
+.attribution-badge {
+  position: absolute !important;
+  bottom: 8px !important;
+  left: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 8px !important;
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  z-index: 1000 !important;
+  transition: background-color 0.2s !important;
+  text-decoration: none !important;
+}
+
+.dark .attribution-badge {
+  background-color: rgba(17, 24, 39, 0.9) !important;
+}
+
+.attribution-badge:hover {
+  background-color: rgba(255, 255, 255, 1) !important;
+}
+
+.dark .attribution-badge:hover {
+  background-color: rgba(17, 24, 39, 1) !important;
+}
