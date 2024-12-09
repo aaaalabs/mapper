@@ -113,8 +113,9 @@ export const Map = forwardRef<HTMLDivElement, MapProps>(({
       <MapContainer
         center={center}
         zoom={zoom}
-        className="h-full w-full"
+        minZoom={2}  // Limit zoom-out level
         zoomControl={false}
+        className="h-full w-full"
       >
         <ZoomControl position="bottomright" />
         <TileLayer
