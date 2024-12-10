@@ -1,14 +1,14 @@
 export interface CommunityMember {
-  name: string;
-  location: string;
-  latitude: string;
-  longitude: string;
-  role?: string;
-  profileImage?: string;
-  socialLinks?: {
-    twitter?: string;
-    linkedin?: string;
-  };
+  id: string;
+  name?: string;
+  image?: string;
+  latitude: number;
+  longitude: number;
+  location?: string;
+  description?: string;
+  website?: string;
+  title?: string;
+  linkedin?: string;
 }
 
 export interface MapMarker {
@@ -16,3 +16,5 @@ export interface MapMarker {
   position: [number, number];
   member: CommunityMember;
 }
+
+export * from './mapSettings';

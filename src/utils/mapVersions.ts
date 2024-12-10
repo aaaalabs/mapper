@@ -16,7 +16,7 @@ export const mapVersions: MapVersion[] = [
     name: 'Satellite Clusters',
     style: mapStyles.satellite,
     options: {
-      markerStyle: 'custom',
+      markerStyle: 'pins',
       enableClustering: true
     }
   },
@@ -34,7 +34,7 @@ export const mapVersions: MapVersion[] = [
     name: 'Dark Analytics',
     style: mapStyles.dark,
     options: {
-      markerStyle: 'custom',
+      markerStyle: 'pins',
       enableClustering: false,
       customOptions: {
         heatmap: true,
@@ -48,7 +48,7 @@ export const mapVersions: MapVersion[] = [
     name: 'Interactive Hybrid',
     style: mapStyles.hybrid,
     options: {
-      markerStyle: 'custom',
+      markerStyle: 'pins',
       enableClustering: true,
       customOptions: {
         animation: true

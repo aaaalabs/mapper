@@ -1,18 +1,28 @@
-import api from './api';
 import { supabase } from '../config/supabase';
 import { CommunityMember } from '../types';
+import { MapSettings, defaultMapSettings } from '../types/mapSettings';
+import { trackEvent } from './analytics';
 
 export interface SavedMap {
   id: string;
+  created_at: string;
+  user_id: string;
   name: string;
+  settings: MapSettings;
   members: CommunityMember[];
-  center: [number, number];
+  center: number[];
   zoom: number;
-  created_at: Date;
-  user_id?: string;
 }
 
-export interface MapFeedback {
+export interface CreateMapInput {
+  name: string;
+  settings?: MapSettings;
+  members: CommunityMember[];
+  center: number[];
+  zoom: number;
+}
+
+interface MapFeedback {
   map_id: string;
   community_type: string;
   satisfaction_rating: number;
@@ -22,7 +32,7 @@ export interface MapFeedback {
   email?: string;
 }
 
-export interface MapAnalytics {
+interface MapAnalytics {
   map_id: string;
   total_members: number;
   unique_locations: number;
@@ -30,7 +40,11 @@ export interface MapAnalytics {
   share_count: number;
 }
 
-export class MapError extends Error {
+interface MapError extends Error {
+  code?: string;
+}
+
+class MapError extends Error {
   constructor(message: string, public code?: string) {
     super(message);
     this.name = 'MapError';
@@ -76,7 +90,7 @@ export async function trackMapDownload(mapId: string) {
   }
 }
 
-export async function trackMapShare(mapId: string) {
+async function trackMapShare(mapId: string) {
   const { error } = await supabase.rpc('increment_map_shares', {
     map_id: mapId
   });
@@ -86,7 +100,7 @@ export async function trackMapShare(mapId: string) {
   }
 }
 
-export async function submitMapFeedback(feedback: MapFeedback) {
+async function submitMapFeedback(feedback: MapFeedback) {
   try {
     const { data, error } = await supabase
       .from('map_feedback')
@@ -108,146 +122,124 @@ export async function submitMapFeedback(feedback: MapFeedback) {
   }
 }
 
-export async function generateMap(file: File): Promise<string> {
+async function generateMap(file: File): Promise<string> {
   try {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await api.post('/generate-map', formData, {
-      responseType: 'text',
+    const response = await fetch('/generate-map', {
+      method: 'POST',
+      body: formData,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Accept': 'application/json',
       },
     });
 
-    return response.data;
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.text();
+    return data;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to generate map: ${error.message}`);
     }
-    throw new Error('An unexpected error occurred while generating the map');
+    throw new Error('Failed to generate map due to an unknown error.');
   }
 }
 
-export async function saveMap(mapData: Omit<SavedMap, 'id' | 'created_at'>): Promise<SavedMap> {
-  try {
-    const { data, error } = await supabase
-      .from('maps')
-      .insert([{
-        ...mapData,
-        created_at: new Date().toISOString()
-      }])
-      .select()
-      .single();
+export async function createMap({ 
+  name, 
+  settings, 
+  members, 
+  center, 
+  zoom 
+}: Omit<CreateMapInput, 'description'>): Promise<SavedMap> {
+  const { data: map, error } = await supabase
+    .from('maps')
+    .insert({
+      name,
+      settings: settings || defaultMapSettings,
+      members,
+      center,
+      zoom
+    })
+    .select()
+    .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
-      throw new MapError(
-        error.message,
-        error.code
-      );
-    }
-
-    if (!data) {
-      throw new MapError('Failed to save map');
-    }
-
-    // Track analytics after successful save
-    await trackMapAnalytics(data.id, mapData.members);
-
-    return data;
-  } catch (error) {
-    if (error instanceof MapError) {
-      throw error;
-    }
-    console.error('Error saving map:', error);
-    throw new MapError('An unexpected error occurred while saving the map');
+  if (error) {
+    throw new Error(`Failed to create map: ${error.message}`);
   }
+
+  if (!map) {
+    throw new MapError('Failed to create map', 'CREATE_FAILED');
+  }
+
+  // Track map creation
+  trackEvent('map_created', {
+    total_members: members.length,
+    unique_locations: new Set(members.map(m => m.location)).size,
+  });
+
+  return map;
 }
 
 export async function getMap(id: string): Promise<SavedMap> {
-  if (!id) {
-    throw new MapError('Map ID is required');
+  const { data: map, error } = await supabase
+    .from('maps')
+    .select(`
+      id,
+      created_at,
+      user_id,
+      name,
+      settings,
+      members,
+      center,
+      zoom
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to get map: ${error.message}`);
   }
 
-  try {
-    console.log('Fetching map:', { id, url: supabase.supabaseUrl });
-
-    // First try to get the map data
-    const { data: mapData, error: mapError } = await supabase
-      .from('maps')
-      .select(`
-        id,
-        name,
-        members,
-        center,
-        zoom,
-        created_at,
-        user_id
-      `)
-      .eq('id', id)
-      .single();
-
-    if (mapError) {
-      console.error('Supabase error details:', {
-        error: mapError,
-        code: mapError.code,
-        message: mapError.message,
-        details: mapError.details,
-        hint: mapError.hint
-      });
-
-      if (mapError.code === 'PGRST116') {
-        throw new MapError('Map not found', 'NOT_FOUND');
-      }
-
-      // Check for auth errors
-      if (mapError.code?.includes('auth')) {
-        throw new MapError('Authentication error: ' + mapError.message, mapError.code);
-      }
-
-      throw new MapError(
-        mapError.message,
-        mapError.code
-      );
-    }
-
-    if (!mapData) {
-      console.error('No map data found for ID:', id);
-      throw new MapError('Map not found', 'NOT_FOUND');
-    }
-
-    // Log successful retrieval
-    console.log('Map retrieved successfully:', { 
-      id: mapData.id, 
-      hasMembers: Array.isArray(mapData.members),
-      hasCenter: Array.isArray(mapData.center),
-      hasZoom: typeof mapData.zoom === 'number'
-    });
-
-    // Validate the map data structure
-    if (!Array.isArray(mapData.members) || !Array.isArray(mapData.center) || typeof mapData.zoom !== 'number') {
-      console.error('Invalid map data format:', { 
-        membersType: typeof mapData.members,
-        centerType: typeof mapData.center,
-        zoomType: typeof mapData.zoom
-      });
-      throw new MapError('Invalid map data format');
-    }
-
-    return {
-      ...mapData,
-      created_at: new Date(mapData.created_at)
-    };
-  } catch (error) {
-    if (error instanceof MapError) {
-      throw error;
-    }
-    console.error('Unexpected error fetching map:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    throw new MapError('An unexpected error occurred while fetching the map');
+  if (!map) {
+    throw new MapError('Map not found', 'NOT_FOUND');
   }
+
+  return map;
+}
+
+export async function updateMapSettings(id: string, settings: MapSettings): Promise<void> {
+  const { error } = await supabase
+    .from('maps')
+    .update({ settings })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update map settings: ${error.message}`);
+  }
+
+  trackEvent({
+    event_name: 'map_settings_updated',
+    event_data: { map_id: id }
+  });
+}
+
+export async function deleteMap(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('maps')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete map: ${error.message}`);
+  }
+
+  trackEvent({
+    event_name: 'map_deleted',
+    event_data: { map_id: id }
+  });
 }

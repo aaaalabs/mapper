@@ -47,6 +47,11 @@ interface TrackEventParams {
 
 export const trackEvent = async ({ event_name, event_data = {} }: TrackEventParams) => {
   try {
+    if (!event_name) {
+      console.error('Event name is required for analytics tracking');
+      return;
+    }
+
     const sessionId = getSessionId();
     
     // Add debug logging
@@ -77,7 +82,8 @@ export const trackEvent = async ({ event_name, event_data = {} }: TrackEventPara
       .insert({
         event_name,
         event_data,
-        session_id: sessionId
+        session_id: sessionId,
+        created_at: new Date().toISOString()
       });
 
     if (error) {
@@ -87,11 +93,14 @@ export const trackEvent = async ({ event_name, event_data = {} }: TrackEventPara
         errorDetails: error.details,
         errorHint: error.hint
       });
-    } else {
-      console.log('Successfully tracked event:', data);
+      throw error;
     }
+
+    console.log('Successfully tracked event:', data);
+    return data;
   } catch (err) {
     console.error('Analytics error:', err);
+    throw err;
   }
 };
 

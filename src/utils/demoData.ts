@@ -91,6 +91,7 @@ export function generateDemoMembers(): CommunityMember[] {
     const username = generateUsername(firstName, lastName);
 
     members.push({
+      id: `${username}-${i}`,
       name: `${firstName} ${lastName}`,
       location: city.name,
       latitude: city.lat.toString(),
@@ -108,9 +109,9 @@ export function generateDemoMembers(): CommunityMember[] {
 export const demoMembers: CommunityMember[] = generateDemoMembers();
 
 export function generateDemoCsv(): string {
-  const header = 'name,title,location,latitude,longitude,image,website,linkedin';
+  const header = 'id,name,title,location,latitude,longitude,image,website,linkedin';
   const rows = demoMembers.map(member => 
-    `${member.name},${member.title || ''},"${member.location}",${member.latitude},${member.longitude},${member.image || ''},${member.website || ''},${member.linkedin || ''}`
+    `${member.id},${member.name},${member.title || ''},"${member.location}",${member.latitude},${member.longitude},${member.image || ''},${member.website || ''},${member.linkedin || ''}`
   );
   return [header, ...rows].join('\n');
 }

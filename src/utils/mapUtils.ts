@@ -9,17 +9,25 @@ export async function parseCsvFile(file: File): Promise<CommunityMember[]> {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const members = results.data as CommunityMember[];
+          const members = results.data.map((data: any) => {
+            const latitude = data.latitude ? parseFloat(data.latitude) : 0;
+            const longitude = data.longitude ? parseFloat(data.longitude) : 0;
+            
+            return {
+              ...data,
+              id: crypto.randomUUID(),
+              latitude: !isNaN(latitude) ? latitude : 0,
+              longitude: !isNaN(longitude) ? longitude : 0
+            };
+          }) as CommunityMember[];
           console.log('Parsed CSV data:', members);
           
           // Filter out entries without name or any location data
           const validMembers = members.filter(member => 
             member.name && 
             (member.location || (
-              member.latitude && 
-              member.longitude && 
-              !isNaN(parseFloat(member.latitude)) && 
-              !isNaN(parseFloat(member.longitude))
+              member.latitude !== 0 && 
+              member.longitude !== 0
             ))
           );
 
@@ -55,25 +63,40 @@ export async function parseCsvFile(file: File): Promise<CommunityMember[]> {
 
 export function calculateMapCenter(members: CommunityMember[]): [number, number] {
   const validMembers = members.filter(member => 
-    member.latitude && 
-    member.longitude && 
-    !isNaN(parseFloat(member.latitude)) && 
-    !isNaN(parseFloat(member.longitude))
+    member.latitude !== 0 && 
+    member.longitude !== 0 &&
+    !isNaN(member.latitude) && 
+    !isNaN(member.longitude)
   );
 
   if (validMembers.length === 0) {
-    return [0, 0];
+    // Default to a central position if no valid coordinates
+    return [20, 0];  // This provides a reasonable default view of the world map
   }
 
   const sumLat = validMembers.reduce((sum, member) => 
-    sum + parseFloat(member.latitude), 0
+    sum + (member.latitude || 0), 0
   );
   const sumLng = validMembers.reduce((sum, member) => 
-    sum + parseFloat(member.longitude), 0
+    sum + (member.longitude || 0), 0
   );
 
+  const centerLat = sumLat / validMembers.length;
+  const centerLng = sumLng / validMembers.length;
+
+  // Final safety check to ensure we don't return NaN
   return [
-    sumLat / validMembers.length,
-    sumLng / validMembers.length
+    !isNaN(centerLat) ? centerLat : 20,
+    !isNaN(centerLng) ? centerLng : 0
   ];
+}
+
+export function getMarkerIcon(markerStyle: "pins" | "photos", member: CommunityMember): string {
+  switch (markerStyle) {
+    case "photos":
+      return member.image || "/images/default-avatar.png";
+    case "pins":
+    default:
+      return "/images/leaflet/marker-icon.png";
+  }
 }

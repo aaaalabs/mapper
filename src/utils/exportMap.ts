@@ -95,7 +95,7 @@ export function generateStandaloneHtml(
           });
         ` : ''}
         
-        members.forEach(member => {
+        members.forEach((member: CommunityMember) => {
           const marker = L.marker([parseFloat(member.latitude), parseFloat(member.longitude)])
             .bindPopup(\`
               <div class="member-popup">

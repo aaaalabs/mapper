@@ -14,7 +14,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
@@ -28,6 +28,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
           "transform transition-all",
           "animate-in fade-in zoom-in-95 duration-200",
           "border border-border",
+          "z-[10000]", // Higher than backdrop
           className
         )}
       >

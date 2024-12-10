@@ -30,6 +30,7 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
+      console.error('Failed to copy link:', err);
       await trackEvent({
         event_name: ANALYTICS_EVENTS.MAP_SHARING.ERROR,
         event_data: { 
@@ -53,6 +54,7 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
       });
       setTimeout(() => setEmbedCopied(false), 2000);
     } catch (err) {
+      console.error('Failed to copy embed code:', err);
       await trackEvent({
         event_name: ANALYTICS_EVENTS.MAP_SHARING.ERROR,
         event_data: { 
@@ -67,7 +69,7 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
     <Modal isOpen={isOpen} onClose={onClose} title="Share Map">
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             Share Link
           </label>
           <div className="flex gap-2">
@@ -75,13 +77,13 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
               type="text"
               readOnly
               value={shareUrl}
-              className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-input bg-background text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-sm"
+              className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:border-transparent"
             />
             <Button
               onClick={handleCopyLink}
               variant="outline"
               size="icon"
-              className="flex-shrink-0 h-10 w-10"
+              className="flex-shrink-0"
             >
               {copied ? (
                 <Check className="h-4 w-4" />
@@ -90,13 +92,13 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
               )}
             </Button>
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
             Share this link with others to let them view your map
           </p>
         </div>
 
         <div className="pt-2">
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             Embed Code
           </label>
           <div className="flex gap-2">
@@ -104,13 +106,13 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
               type="text"
               readOnly
               value={embedCode}
-              className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-input bg-background text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-sm font-mono"
+              className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:border-transparent font-mono text-sm"
             />
             <Button
               onClick={handleCopyEmbed}
               variant="outline"
               size="icon"
-              className="flex-shrink-0 h-10 w-10"
+              className="flex-shrink-0"
             >
               {embedCopied ? (
                 <Check className="h-4 w-4" />
@@ -119,7 +121,7 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
               )}
             </Button>
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
             Paste this code into your website to embed the map
           </p>
         </div>
@@ -136,4 +138,4 @@ export function ShareModal({ isOpen, onClose, mapId }: ShareModalProps) {
       </div>
     </Modal>
   );
-} 
+}

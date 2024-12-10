@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, AlertCircle, CheckCircle2, FileDown } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -87,14 +88,30 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
     setUploadSuccess(false);
     
     try {
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
+        event_data: { filename: file.name, fileSize: file.size }
+      });
+
       if (await validateFile(file)) {
         onFileSelect(file);
         setUploadSuccess(true);
+        
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
+          event_data: { filename: file.name, fileSize: file.size }
+        });
       }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error processing file. Please try again.";
       setError({ 
         type: 'process', 
-        message: "Error processing file. Please try again." 
+        message: errorMessage 
+      });
+      
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.ERROR,
+        event_data: { error: errorMessage }
       });
     } finally {
       setIsUploading(false);

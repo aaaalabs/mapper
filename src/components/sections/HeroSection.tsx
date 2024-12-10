@@ -5,6 +5,7 @@ import { Map } from '../Map';
 import { generateDemoMembers } from '../../utils/demoData';
 import { calculateMapCenter } from '../../utils/mapUtils';
 import { CommunityMember } from '../../types';
+import { MapSettings, defaultMapSettings } from '../../types/mapSettings';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 
 // Add new event types
@@ -18,11 +19,15 @@ export function HeroSection() {
   const [demoMembers, setDemoMembers] = useState<CommunityMember[]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
   const [hasInteractedWithDemo, setHasInteractedWithDemo] = useState(false);
+  const [mapSettings, setMapSettings] = useState<MapSettings>(defaultMapSettings);
 
   useEffect(() => {
     const members = generateDemoMembers();
     setDemoMembers(members);
-    setMapCenter(calculateMapCenter(members));
+    const center = calculateMapCenter(members);
+    if (center) {
+      setMapCenter(center);
+    }
 
     // Track scroll depth
     const handleScroll = () => {
@@ -97,6 +102,9 @@ export function HeroSection() {
               members={demoMembers}
               center={mapCenter}
               zoom={2}
+              variant="hero"
+              settings={mapSettings}
+              onSettingsChange={setMapSettings}
             />
           )}
         </div>

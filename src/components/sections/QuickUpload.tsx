@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { FileUpload } from '../FileUpload';
 import { Map } from '../Map';
 import { parseCsvFile } from '../../utils/mapUtils';
-import { generateStandaloneHtml, downloadHtmlFile } from '../../utils/exportMap';
+import { generateStandaloneHtml, downloadHtmlFile, MapOptions } from '../../utils/exportMap';
 import { generateDemoCsv } from '../../utils/demoData';
 import { calculateMapCenter } from '../../utils/mapUtils';
 import { CommunityMember } from '../../types';
@@ -12,10 +12,11 @@ import { Overlay } from '../ui/Overlay';
 import { OverlayContent } from '../ui/OverlayContent';
 import { cn } from '../../lib/utils';
 import { FeedbackForm } from '../FeedbackForm';
-import { saveMap, trackMapDownload } from '../../services/mapService';
+import { createMap, trackMapDownload } from '../../services/mapService';
 import { ShareModal } from '../ShareModal';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { MapSettings } from '../../types/mapSettings';
 
 interface QuickUploadProps {
   onMapCreated: (mapId: string) => void;
@@ -27,6 +28,30 @@ const STEPS = [
   { key: 'success', label: 'Download' }
 ];
 
+const defaultMapSettings = {
+  style: {
+    id: 'standard',
+    markerStyle: 'pins',  
+    popupStyle: {
+      background: '#FFFFFF',
+      text: '#1D3640',
+      border: '#E2E8F0',
+      shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    }
+  },
+  features: {
+    enableClustering: true,
+    enableFullscreen: true,
+    enableSharing: true,
+    enableSearch: false
+  },
+  customization: {
+    markerColor: '#E9B893',
+    clusterColor: '#F99D7C',
+    fontFamily: 'Inter'
+  }
+};
+
 export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +62,29 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [mapSettings, setMapSettings] = useState<MapSettings>({
+    style: {
+      id: 'standard',
+      markerStyle: 'pins',  
+      popupStyle: {
+        background: '#FFFFFF',
+        text: '#1D3640',
+        border: '#E2E8F0',
+        shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      }
+    },
+    features: {
+      enableClustering: true,
+      enableFullscreen: true,
+      enableSharing: true,
+      enableSearch: false
+    },
+    customization: {
+      markerColor: '#E9B893',
+      clusterColor: '#F99D7C',
+      fontFamily: 'Inter'
+    }
+  });
 
   const handleFileSelect = async (file: File) => {
     try {
@@ -102,23 +150,43 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
           event_data: { members_count: members.length }
         });
 
-        const savedMap = await saveMap({
-          name: 'Community Map',
+        // Save map with current settings
+        const savedMap = await createMap({
+          name: 'My Community Map',
           members,
-          center,
-          zoom: 2
+          center: center || [0, 0],
+          zoom: 2,
+          settings: {
+            ...mapSettings,
+            center: center || [0, 0],
+            zoom: 2
+          }
         });
-        
-        const html = generateStandaloneHtml(members, center, {
-          markerStyle: 'default',
-          enableFullscreen: true,
-          enableSharing: true,
-          enableClustering: true
-        });
-        downloadHtmlFile(html, 'community-map.html');
 
         setCurrentMapId(savedMap.id);
+
+        // Generate and download HTML
+        const mapSettingsToOptions = (settings: MapSettings): MapOptions => ({
+          markerStyle: settings.style.markerStyle,
+          enableClustering: settings.features.enableClustering,
+          enableFullscreen: settings.features.enableFullscreen,
+          enableSharing: settings.features.enableSharing,
+          enableSearch: settings.features.enableSearch,
+          customization: {
+            markerColor: settings.customization.markerColor,
+            clusterColor: settings.customization.clusterColor,
+            fontFamily: settings.customization.fontFamily
+          },
+          style: {
+            popup: settings.style.popupStyle
+          }
+        });
+        const html = await generateStandaloneHtml(members, center || [0, 0], mapSettingsToOptions(mapSettings));
+        downloadHtmlFile(html, 'community-map.html');
+
+        // Track successful download
         await trackMapDownload(savedMap.id);
+        
         setUploadStep('success');
         setShowFeedback(true);
 
@@ -126,12 +194,9 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
           event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
           event_data: { map_id: savedMap.id }
         });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to save map');
-        await trackEvent({
-          event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.ERROR,
-          event_data: { error: err instanceof Error ? err.message : 'Unknown error' }
-        });
+      } catch (error) {
+        console.error('Error downloading map:', error);
+        setError('Failed to download map. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -212,6 +277,9 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
               center={center}
               isLoading={isLoading}
               hideShareButton={true}
+              variant="preview"
+              settings={mapSettings}
+              onSettingsChange={setMapSettings}
             />
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

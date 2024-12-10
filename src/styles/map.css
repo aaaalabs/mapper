@@ -1,0 +1,40 @@
+/* Map Popup Styles */
+.map-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.map-popup .leaflet-popup-content {
+  margin: 0;
+  min-width: 200px;
+}
+
+.map-popup .leaflet-popup-close-button {
+  color: #666;
+  font-size: 16px;
+  padding: 8px;
+}
+
+.map-popup .leaflet-popup-close-button:hover {
+  color: #333;
+}
+
+/* Marker Cluster Customization */
+.marker-cluster {
+  background-clip: padding-box;
+  border-radius: 20px;
+}
+
+.marker-cluster div {
+  width: 30px;
+  height: 30px;
+  margin-left: 5px;
+  margin-top: 5px;
+  text-align: center;
+  border-radius: 15px;
+  font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
+}
+
+.marker-cluster span {
+  line-height: 30px;
+}
