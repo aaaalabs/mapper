@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { Z_INDEX } from '../../constants/zIndex';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] overflow-y-auto">
+    <div className="fixed inset-0" style={{ zIndex: Z_INDEX.AUTH_MODAL_BACKDROP }}>
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"
@@ -22,7 +23,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       />
 
       {/* Modal Container */}
-      <div className="relative flex min-h-full items-center justify-center p-4">
+      <div className="relative flex min-h-full items-center justify-center p-4" style={{ zIndex: Z_INDEX.AUTH_MODAL_CONTENT }}>
         <div className="relative w-full max-w-md transform rounded-lg bg-white p-6 text-left shadow-xl transition-all">
           {/* Close Button */}
           <button

@@ -5,7 +5,7 @@ export const mapStyles: Record<string, MapStyle> = {
     id: 'standard',
     name: 'Standard',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    attribution: '',
     popupStyle: {
       background: '#FFFFFF',
       text: '#1D3640',
@@ -17,7 +17,7 @@ export const mapStyles: Record<string, MapStyle> = {
     id: 'satellite',
     name: 'Satellite',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    attribution: '',
     popupStyle: {
       background: 'rgba(0, 0, 0, 0.8)',
       text: '#FFFFFF',
@@ -29,7 +29,7 @@ export const mapStyles: Record<string, MapStyle> = {
     id: 'terrain',
     name: 'Terrain',
     url: 'https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png',
-    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://creativecommons.org/licenses/by-sa/3.0">CC BY SA</a>.',
+    attribution: '',
     popupStyle: {
       background: '#F0FDF4',
       text: '#166534',
@@ -41,7 +41,7 @@ export const mapStyles: Record<string, MapStyle> = {
     id: 'dark',
     name: 'Dark',
     url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+    attribution: '',
     popupStyle: {
       background: '#1F2937',
       text: '#F3F4F6',
@@ -53,7 +53,7 @@ export const mapStyles: Record<string, MapStyle> = {
     id: 'hybrid',
     name: 'Hybrid',
     url: 'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+    attribution: '',
     popupStyle: {
       background: '#EEF2FF',
       text: '#3730A3',

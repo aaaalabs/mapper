@@ -138,18 +138,21 @@ export const Map: React.FC<MapProps> = ({
           ref={mapRef}
           center={center}
           zoom={zoom}
-          className="w-full h-full"
+          className={cn(
+            'w-full h-full rounded-lg',
+            variant === 'hero' && 'rounded-none',
+            className
+          )}
+          attributionControl={false}
           zoomControl={false}
           minZoom={2}
           maxZoom={18}
-          scrollWheelZoom={true}
-          preferCanvas={true}
         >
           <ZoomControl position="bottomright" />
           
           <TileLayer
-            attribution={currentMapStyle.attribution}
             url={currentMapStyle.url}
+            attribution=""
             maxZoom={18}
             subdomains={['a', 'b', 'c']}
             keepBuffer={8}
@@ -196,7 +199,7 @@ export const Map: React.FC<MapProps> = ({
         {/* Top Left Controls */}
         {(features.enableSharing || features.enableFullscreen) && (
           <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-auto" style={{ zIndex: Z_INDEX.MAP_BUTTONS }}>
-            {features.enableSharing && (
+            {features.enableSharing && (variant === 'preview' || variant === 'share') && (
               <button
                 onClick={() => setShowShareModal(true)}
                 className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 transition-colors"
@@ -263,6 +266,8 @@ export const Map: React.FC<MapProps> = ({
             <MapSettingsWidget
               settings={settings}
               onSettingsChange={onSettingsChange}
+              variant={variant}
+              className="absolute top-0 right-0"
             />
           </div>
         )}

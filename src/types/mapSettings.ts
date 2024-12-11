@@ -34,7 +34,7 @@ export interface MapSettings {
 
 export const defaultMapSettings: MapSettings = {
   style: {
-    id: 'standard',
+    id: 'minimal',
     markerStyle: 'pins',
     popupStyle: {
       background: '#FFFFFF',

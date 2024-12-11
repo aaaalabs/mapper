@@ -9,6 +9,7 @@ export interface CommunityMember {
   website?: string;
   title?: string;
   linkedin?: string;
+  links?: { [key: string]: string };
 }
 
 export interface MapMarker {

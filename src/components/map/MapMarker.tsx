@@ -1,4 +1,5 @@
 import { Marker, Popup } from "react-leaflet";
+import type { Popup as PopupType } from 'react-leaflet';
 import { CommunityMember, MapSettings } from "../../types";
 import { icon } from "leaflet";
 import { getMarkerIcon } from "../../utils/mapUtils";
@@ -11,7 +12,7 @@ interface MapMarkerProps {
 
 export function MapMarker({ member, settings }: MapMarkerProps) {
   if (!member.latitude || !member.longitude) return null;
-  const popupRef = useRef<Popup | null>(null);
+  const popupRef = useRef<PopupType | null>(null);
 
   const position: [number, number] = [
     member.latitude,

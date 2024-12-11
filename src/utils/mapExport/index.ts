@@ -14,7 +14,12 @@ export async function exportMap(
 }
 
 export function downloadMap(html: string, filename: string = 'community-map.html'): void {
-  const blob = new Blob([html], { type: 'text/html' });
+  // Clean up any potential markdown-style syntax
+  const cleanHtml = html
+    .replace(/:::\s*{[^}]*}/g, '') // Remove any ::: {#map} style syntax
+    .replace(/:::/g, ''); // Remove any remaining colons
+    
+  const blob = new Blob([cleanHtml], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

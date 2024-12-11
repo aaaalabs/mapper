@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { MapSettings } from '../../types/mapSettings';
+import { Z_INDEX } from '../../constants/zIndex';
 
 interface MapSettingsWidgetProps {
   settings: MapSettings;
   onSettingsChange: (settings: MapSettings) => void;
   className?: string;
+  variant?: string;
 }
 
 export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
   settings,
   onSettingsChange,
   className,
+  variant,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -46,7 +49,7 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
   };
 
   return (
-    <div className={`absolute top-3 right-3 z-[9999] ${className}`}>
+    <div className={`absolute ${className}`} style={{ top: 0, right: 0, zIndex: Z_INDEX.MAP_SETTINGS }}>
       <div className="bg-white rounded-lg shadow-lg overflow-hidden min-w-[240px]">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -87,15 +90,17 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
                     />
                     <span className="text-sm text-gray-600">Fullscreen Button</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.features.enableSharing}
-                      onChange={() => handleFeatureToggle('enableSharing')}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">Share Button</span>
-                  </label>
+                  {variant !== 'hero' && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={settings.features.enableSharing}
+                        onChange={() => handleFeatureToggle('enableSharing')}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-600">Share Button</span>
+                    </label>
+                  )}
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -115,7 +120,6 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
                   onChange={(e) => handleStyleChange(e.target.value)}
                   className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="standard">Standard</option>
                   <option value="minimal">Minimal</option>
                   <option value="dark">Dark</option>
                   <option value="satellite">Satellite</option>

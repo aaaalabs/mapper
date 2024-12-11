@@ -1,7 +1,27 @@
 import { CommunityMember } from '../../../types';
 import { MapSettings, defaultMapSettings } from '../../../types/mapSettings';
+import { generateStyles } from './styles';
+import { generateSearchHtml, generateSearchScript } from './components/search';
+import { generateMapScript, generateMemberPopup } from './components/map';
 
 export interface MapOptions extends Partial<MapSettings> {}
+
+const safeStringify = (obj: any): string => {
+  try {
+    return JSON.stringify(obj, null, 2)
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e')
+      .replace(/&/g, '\\u0026')
+      .replace(/'/g, '\\u0027')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+  } catch (error) {
+    console.error('Error stringifying object:', error);
+    return '{}';
+  }
+};
 
 export async function generateHtml(
   members: CommunityMember[],
@@ -67,334 +87,99 @@ export async function generateHtml(
       .map(member => cacheImage(member.image || ''))
   );
 
-  const membersJson = members.map(member => ({
-    ...member,
-    image: member.image ? imageCache.get(member.image) || imageCache.get(defaultAvatar) : imageCache.get(defaultAvatar)
+  const defaultAvatarUrl = 'https://via.placeholder.com/40';
+
+  // Prepare client-side data
+  const clientMembers = members.map(member => ({
+    id: member.id,
+    name: member.name || '',
+    title: member.title || '',
+    latitude: member.latitude,
+    longitude: member.longitude,
+    location: member.location || '',
+    description: member.description || '',
+    image: member.image || defaultAvatar,
+    website: member.website || '',
+    linkedin: member.linkedin || '',
+    links: member.links || {}
   }));
 
-  // Convert imageCache to a plain object for JSON serialization
-  const imageCacheJson = Object.fromEntries(imageCache);
-
-  // Create a safe JSON.stringify that handles undefined values and converts booleans to strings when needed
-  const safeStringify = (obj: any) => JSON.stringify(obj, (key, value) => {
-    if (value === undefined) return null;
-    if (typeof value === 'boolean') return value.toString();
-    return value;
-  });
-
-  return `<!DOCTYPE html>
-<html>
-  <head>
-    <title>Community Map</title>
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    ${settings.features?.enableFullscreen ? `
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.css" />
+    ` : ''}
+    <style>${generateStyles()}</style>
+</head>
+<body>
+    <div id="map"></div>
+    ${settings.features?.enableSearch ? generateSearchHtml() : ''}
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <style>
-      body { 
-        margin: 0; 
-        padding: 0;
-        font-family: ${settings.customization.fontFamily}, system-ui, sans-serif;
-      }
-      #map { 
-        position: absolute; 
-        top: 0; 
-        bottom: 0; 
-        width: 100%; 
-      }
-      .search-container {
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1000;
-        width: 300px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      .search-input {
-        width: 100%;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        outline: none;
-      }
-      .search-results {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border-radius: 8px;
-        margin-top: 4px;
-        max-height: 200px;
-        overflow-y: auto;
-        display: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      .search-result-item {
-        padding: 8px 12px;
-        cursor: pointer;
-      }
-      .search-result-item:hover {
-        background-color: #f5f5f5;
-      }
-      .leaflet-popup-content-wrapper {
-        padding: 0 !important;
-        overflow: hidden;
-        border-radius: 8px !important;
-      }
-      .leaflet-popup-content {
-        margin: 0 !important;
-      }
-      .member-popup { 
-        text-align: center; 
-        padding: 1rem;
-        background-color: ${settings.style.popupStyle.background};
-        color: ${settings.style.popupStyle.text};
-        min-width: 200px;
-      }
-      .member-popup img.member-image {
-        width: 4rem;
-        height: 4rem;
-        border-radius: 50%;
-        object-fit: cover;
-        margin-bottom: 0.5rem;
-      }
-      .member-popup h3 { 
-        margin: 0.5rem 0;
-        font-size: 1.125rem;
-        font-weight: 600;
-      }
-      .member-marker-img {
-        border: 3px solid ${settings.customization.markerColor};
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      }
-      .member-marker {
-        background: none !important;
-        border: none !important;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
-    ${settings.features.enableSearch ? `
-      <div class="search-container">
-        <input type="text" class="search-input" placeholder="Search members...">
-        <div class="search-results"></div>
-      </div>
+    ${settings.features?.enableFullscreen ? `
+    <script src="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.js"></script>
     ` : ''}
     <script>
-      const members = ${safeStringify(membersJson)};
-      const settings = ${safeStringify(settings)};
-      const imageCache = ${safeStringify(imageCacheJson)};
+      // Initialize map data
+      const members = ${safeStringify(clientMembers)};
+      const mapCenter = ${safeStringify(center)};
+      const settings = ${safeStringify({ ...defaultMapSettings, ...options })};
       const defaultAvatar = '${defaultAvatar}';
-      const defaultMarker = '${defaultMarker}';
-
+      
       // Initialize map
       const map = L.map('map', {
-        center: ${safeStringify(center)},
-        zoom: settings.zoom || 13
+        center: mapCenter,
+        zoom: settings.zoom || 3,
+        zoomControl: false,
+        attributionControl: false,
+        minZoom: 2,
+        maxZoom: 18,
+        fullscreenControl: settings.features?.enableFullscreen || false
       });
 
       // Add tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution: ''
       }).addTo(map);
 
-      // Create markers with proper fallback handling
-      function createMarker(member) {
-        if (!member.latitude || !member.longitude) return null;
-        
-        const markerSize = settings?.style?.markerStyle === 'photos' ? 40 : 25;
-        const markerHtml = settings?.style?.markerStyle === 'photos' 
-          ? `<img src="${member.image || imageCache[defaultAvatar]}" alt="${member.name || ''}" class="member-marker-img" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
-          : '';
-
-        const markerIcon = settings?.style?.markerStyle === 'photos'
-          ? L.divIcon({
-              html: markerHtml,
-              className: 'member-marker',
-              iconSize: [markerSize, markerSize],
-              iconAnchor: [markerSize/2, markerSize/2],
-              popupAnchor: [0, -markerSize/2]
-            })
-          : L.icon({
-              iconUrl: imageCache[defaultMarker],
-              iconSize: [markerSize, 41],
-              iconAnchor: [markerSize/2, 41],
-              popupAnchor: [0, -41]
-            });
-
-        const marker = L.marker([member.latitude, member.longitude], { 
-          icon: markerIcon 
-        });
-
-        const popupContent = `
-          <div class="member-popup" style="
-            background-color: ${settings.style.popupStyle.background};
-            color: ${settings.style.popupStyle.text};
-            padding: 1rem;
-            border-radius: 8px;
-            min-width: 200px;
-            max-width: 300px;
-          ">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-              <img 
-                src="${member.image || imageCache[defaultAvatar]}" 
-                alt="${member.name || ''}"
-                style="width: 4rem; height: 4rem; border-radius: 50%; object-fit: cover;"
-                onerror="this.src=imageCache[defaultAvatar]"
-              >
-              <div>
-                <h3 style="
-                  margin: 0;
-                  font-size: 1.125rem;
-                  font-weight: 600;
-                  color: ${settings.style.popupStyle.text};
-                ">${member.name || 'Unknown Member'}</h3>
-                ${member.location ? `
-                  <p style="
-                    margin: 0.25rem 0 0;
-                    font-size: 0.875rem;
-                    opacity: 0.8;
-                  ">${member.location}</p>
-                ` : ''}
-              </div>
-            </div>
-            ${member.links ? `
-              <div class="member-links" style="
-                margin-top: 0.75rem;
-                display: flex;
-                gap: 0.5rem;
-                flex-wrap: wrap;
-              ">
-                ${Object.entries(member.links).map(([platform, url]) => `
-                  <a 
-                    href="${url}" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style="
-                      color: ${settings.customization.markerColor};
-                      text-decoration: none;
-                      padding: 4px 8px;
-                      border-radius: 4px;
-                      font-size: 14px;
-                      background: ${settings.customization.markerColor}1a;
-                    "
-                  >${platform}</a>
-                `).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `;
-        
-        marker.bindPopup(popupContent);
-        return marker;
-      }
-
-      // Initialize markers with clustering
-      const markerCluster = L.markerClusterGroup({
+      // Initialize marker cluster group
+      const markers = L.markerClusterGroup({
         maxClusterRadius: 50,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        disableClusteringAtZoom: 19,
-        iconCreateFunction: function(cluster) {
-          const count = cluster.getChildCount();
-          const size = count < 10 ? 40 : count < 100 ? 50 : 60;
-          return L.divIcon({
-            html: `<div style="
-              background-color: ${settings.customization.clusterColor};
-              color: ${settings.style.popupStyle.text};
-              width: ${size}px;
-              height: ${size}px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              border-radius: 50%;
-              font-weight: 600;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            ">${count}</div>`,
-            className: 'marker-cluster',
-            iconSize: L.point(size, size)
-          });
-        }
+        zoomToBoundsOnClick: true
       });
 
-      // Create and add markers
+      // Add markers for each member
       members.forEach(member => {
-        const marker = createMarker(member);
-        if (marker) {
-          markerCluster.addLayer(marker);
+        if (member.latitude && member.longitude) {
+          const marker = L.marker([member.latitude, member.longitude]);
+          marker.bindPopup(generateMemberPopup(member, defaultAvatar));
+          markers.addLayer(marker);
         }
       });
-      
-      map.addLayer(markerCluster);
-      
-      // Fit bounds to show all markers
-      const bounds = markerCluster.getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [50, 50] });
+
+      map.addLayer(markers);
+
+      // Fit bounds if there are markers
+      if (markers.getLayers().length > 0) {
+        map.fitBounds(markers.getBounds(), {
+          padding: [50, 50]
+        });
       }
 
-      // Add search functionality
-      if (settings.features.enableSearch) {
-        const searchInput = document.querySelector('.search-input') as HTMLInputElement;
-        const searchResults = document.querySelector('.search-results') as HTMLDivElement;
-
-        if (searchInput && searchResults) {
-          searchInput.addEventListener('input', (e) => {
-            const target = e.target as HTMLInputElement;
-            const value = target.value.toLowerCase();
-            
-            if (!value) {
-              searchResults.style.display = 'none';
-              return;
-            }
-            
-            const results = members.filter(member => 
-              (member.name || '').toLowerCase().includes(value) ||
-              (member.location || '').toLowerCase().includes(value) ||
-              (member.bio || '').toLowerCase().includes(value)
-            );
-            
-            searchResults.innerHTML = results
-              .slice(0, 5)
-              .map(member => `
-                <div class="search-result-item" data-lat="${member.latitude}" data-lng="${member.longitude}">
-                  ${member.name || 'Unknown Member'}
-                  ${member.location ? ` - ${member.location}` : ''}
-                </div>
-              `)
-              .join('');
-            
-            searchResults.style.display = results.length ? 'block' : 'none';
-          });
-
-          searchResults.addEventListener('click', (e) => {
-            const target = e.target as HTMLElement;
-            const item = target.closest('.search-result-item');
-            if (!item) return;
-            
-            const lat = parseFloat(item.getAttribute('data-lat') || '0');
-            const lng = parseFloat(item.getAttribute('data-lng') || '0');
-            
-            if (lat && lng) {
-              map.setView([lat, lng], 16);
-              searchResults.style.display = 'none';
-              searchInput.value = '';
-            }
-          });
-        }
-      }
+      // Initialize search if enabled
+      ${settings.features?.enableSearch ? generateSearchScript() : ''}
     </script>
-  </body>
-</html>
-`;
+</body>
+</html>`;
 }

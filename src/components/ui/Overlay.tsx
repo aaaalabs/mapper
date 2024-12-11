@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { Z_INDEX } from '../../constants/zIndex';
 
 interface OverlayProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ export function Overlay({ isOpen, onClose, children, className }: OverlayProps) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto">
+    <div className="fixed inset-0 overflow-y-auto" style={{ zIndex: Z_INDEX.AUTH_MODAL_BACKDROP }}>
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"
@@ -21,7 +22,7 @@ export function Overlay({ isOpen, onClose, children, className }: OverlayProps) 
       />
 
       {/* Content Container */}
-      <div className="relative flex min-h-full items-center justify-center p-4">
+      <div className="relative flex min-h-full items-center justify-center p-4" style={{ zIndex: Z_INDEX.AUTH_MODAL_CONTENT }}>
         <div 
           className={cn(
             "relative w-full max-w-lg transform rounded-lg bg-white p-6 text-left shadow-xl transition-all duration-300",

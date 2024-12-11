@@ -167,19 +167,23 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
 
         // Generate and download HTML
         const mapSettingsToOptions = (settings: MapSettings): MapOptions => ({
-          markerStyle: settings.style.markerStyle,
-          enableClustering: settings.features.enableClustering,
-          enableFullscreen: settings.features.enableFullscreen,
-          enableSharing: settings.features.enableSharing,
-          enableSearch: settings.features.enableSearch,
+          features: {
+            enableClustering: settings.features.enableClustering,
+            enableFullscreen: settings.features.enableFullscreen,
+            enableSharing: settings.features.enableSharing,
+            enableSearch: settings.features.enableSearch
+          },
+          style: {
+            id: settings.style.id,
+            markerStyle: settings.style.markerStyle,
+            popupStyle: settings.style.popupStyle
+          },
           customization: {
             markerColor: settings.customization.markerColor,
             clusterColor: settings.customization.clusterColor,
             fontFamily: settings.customization.fontFamily
           },
-          style: {
-            popup: settings.style.popupStyle
-          }
+          zoom: settings.zoom
         });
         const html = await generateStandaloneHtml(members, center || [0, 0], mapSettingsToOptions(mapSettings));
         downloadHtmlFile(html, 'community-map.html');
