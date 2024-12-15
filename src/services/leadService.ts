@@ -14,6 +14,8 @@ export interface Lead {
   feedback_id?: string;
   notes?: string;
   metadata?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export async function createLead(lead: Lead) {

@@ -22,6 +22,9 @@ export interface MapCustomization {
   markerColor: string;
   clusterColor: string;
   fontFamily: string;
+  showAttribution: boolean;
+  showName: boolean;
+  hideMapNameSettings?: boolean;
 }
 
 export interface MapSettings {
@@ -52,7 +55,10 @@ export const defaultMapSettings: MapSettings = {
   customization: {
     markerColor: '#E9B893',
     clusterColor: '#F99D7C',
-    fontFamily: 'Inter'
+    fontFamily: 'Inter',
+    showAttribution: true,
+    showName: true,
+    hideMapNameSettings: false
   },
   center: [0, 0]
 };

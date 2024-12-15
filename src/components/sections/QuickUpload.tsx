@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileDown, AlertCircle, CheckCircle2, ArrowRight, Share2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { FileUpload } from '../FileUpload';
@@ -12,14 +12,15 @@ import { Overlay } from '../ui/Overlay';
 import { OverlayContent } from '../ui/OverlayContent';
 import { cn } from '../../lib/utils';
 import { FeedbackForm } from '../FeedbackForm';
-import { createMap, trackMapDownload } from '../../services/mapService';
+import { createMap, trackMapDownload, updateMapName } from '../../services/mapService';
 import { ShareModal } from '../ShareModal';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { MapSettings } from '../../types/mapSettings';
+import { supabase } from '../../lib/supabase';
 
 interface QuickUploadProps {
-  onMapCreated: (mapId: string) => void;
+  onMapCreated: (mapId: string, mapName: string, shareLink: string) => void;
 }
 
 const STEPS = [
@@ -48,7 +49,10 @@ const defaultMapSettings = {
   customization: {
     markerColor: '#E9B893',
     clusterColor: '#F99D7C',
-    fontFamily: 'Inter'
+    fontFamily: 'Inter',
+    showName: true // Enable map name by default
+    ,
+    showAttribution: false
   }
 };
 
@@ -62,6 +66,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [mapName, setMapName] = useState<string>('My Community Map');
   const [mapSettings, setMapSettings] = useState<MapSettings>({
     style: {
       id: 'standard',
@@ -82,9 +87,41 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
     customization: {
       markerColor: '#E9B893',
       clusterColor: '#F99D7C',
-      fontFamily: 'Inter'
+      fontFamily: 'Inter',
+      showName: true // Enable map name by default
+      ,
+      showAttribution: false
     }
   });
+
+  useEffect(() => {
+    if (currentMapId) {
+      // Subscribe to real-time changes for this map
+      const subscription = supabase
+        .channel(`map:${currentMapId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'maps',
+            filter: `id=eq.${currentMapId}`
+          },
+          (payload) => {
+            // Update the map name if it changed and it's different from our current value
+            if (payload.new.name !== mapName) {
+              setMapName(payload.new.name);
+            }
+          }
+        )
+        .subscribe();
+
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [currentMapId, mapName]);
 
   const handleFileSelect = async (file: File) => {
     try {
@@ -110,8 +147,26 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       setCenter(mapCenter);
       setUploadStep('preview');
       
+      // Create the map in Supabase immediately after successful parsing
+      const savedMap = await createMap({
+        name: mapName,
+        members: parsedMembers,
+        center: mapCenter || [0, 0],
+        zoom: 2,
+        settings: mapSettings
+      });
+
+      // Update state with the created map info
+      setCurrentMapId(savedMap.id);
+      setMapName(savedMap.name);
+      
+      // Call onMapCreated callback with the map info
+      if (onMapCreated) {
+        onMapCreated(savedMap.id, savedMap.name, `${window.location.origin}/map/${savedMap.id}`);
+      }
+      
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.SUCCESS,
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
         event_data: { members_count: parsedMembers.length }
       });
     } catch (error) {
@@ -124,6 +179,17 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMapNameChange = async (name: string) => {
+    setMapName(name);
+    if (currentMapId) {
+      try {
+        await updateMapName(currentMapId, name);
+      } catch (error) {
+        console.error('Error updating map name:', error);
+      }
     }
   };
 
@@ -150,53 +216,42 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
           event_data: { members_count: members.length }
         });
 
-        // Save map with current settings
-        const savedMap = await createMap({
-          name: 'My Community Map',
-          members,
-          center: center || [0, 0],
-          zoom: 2,
-          settings: {
-            ...mapSettings,
-            center: center || [0, 0],
-            zoom: 2
-          }
-        });
-
-        setCurrentMapId(savedMap.id);
-
         // Generate and download HTML
         const mapSettingsToOptions = (settings: MapSettings): MapOptions => ({
           features: {
             enableClustering: settings.features.enableClustering,
             enableFullscreen: settings.features.enableFullscreen,
-            enableSharing: settings.features.enableSharing,
-            enableSearch: settings.features.enableSearch
+            enableSharing: settings.features.enableSharing
           },
+          enableSearch: settings.features.enableSearch,
           style: {
             id: settings.style.id,
-            markerStyle: settings.style.markerStyle,
+            markerStyle: settings.style.markerStyle || 'pins',
             popupStyle: settings.style.popupStyle
           },
           customization: {
             markerColor: settings.customization.markerColor,
             clusterColor: settings.customization.clusterColor,
-            fontFamily: settings.customization.fontFamily
+            fontFamily: settings.customization.fontFamily,
+            showName: settings.customization.showName
           },
+          title: mapName,
           zoom: settings.zoom
         });
         const html = await generateStandaloneHtml(members, center || [0, 0], mapSettingsToOptions(mapSettings));
         downloadHtmlFile(html, 'community-map.html');
 
         // Track successful download
-        await trackMapDownload(savedMap.id);
+        if (currentMapId) {
+          await trackMapDownload(currentMapId);
+        }
         
         setUploadStep('success');
         setShowFeedback(true);
 
         await trackEvent({
           event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
-          event_data: { map_id: savedMap.id }
+          event_data: { map_id: currentMapId }
         });
       } catch (error) {
         console.error('Error downloading map:', error);
@@ -207,158 +262,30 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
     }
   };
 
-  const handleReset = () => {
-    setMembers([]);
-    setCenter(null);
-    setUploadStep('initial');
-    setError(null);
-    setCurrentMapId(null);
-    setShowFeedback(false);
-  };
-
   const handleShare = async () => {
-    if (currentMapId) {
+    if (!currentMapId) return;
+    
+    try {
       await trackEvent({
         event_name: ANALYTICS_EVENTS.MAP_SHARING.INITIATED,
         event_data: { map_id: currentMapId }
       });
+      
       setShowShare(true);
+    } catch (error) {
+      console.error('Failed to open share modal:', error);
     }
   };
 
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <LoadingSpinner 
-          size="lg"
-          message="Processing your data and geocoding locations..."
-          className="py-12"
-        />
-      );
-    }
-
-    if (uploadStep === 'initial') {
-      return (
-        <div className="space-y-6">
-          <FileUpload
-            onFileSelect={handleFileSelect}
-            className="border-2 border-dashed border-accent/20 dark:border-accent-dark/20 hover:border-accent/40 dark:hover:border-accent-dark/40 rounded-xl p-8 transition-colors"
-          />
-
-          {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-center gap-3 text-sm text-tertiary dark:text-dark-tertiary">
-            <button 
-              onClick={handleDownloadDemo}
-              className="hover:text-accent dark:hover:text-accent-dark transition-colors inline-flex items-center gap-1"
-            >
-              <FileDown className="w-4 h-4" />
-              Download sample CSV
-            </button>
-            <span>·</span>
-            <button 
-              onClick={() => setShowFormatGuide(true)}
-              className="hover:text-accent dark:hover:text-accent-dark transition-colors inline-flex items-center gap-1"
-            >
-              View formatting guide
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (uploadStep === 'preview' && members.length > 0 && center) {
-      return (
-        <div className="space-y-6">
-          <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
-            <Map
-              members={members}
-              center={center}
-              isLoading={isLoading}
-              hideShareButton={true}
-              variant="preview"
-              settings={mapSettings}
-              onSettingsChange={setMapSettings}
-            />
-          </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button
-              variant="primary"
-              onClick={handleDownloadMap}
-              disabled={isLoading}
-              className="w-full sm:w-auto sm:min-w-[200px] text-lg"
-            >
-              {isLoading ? 'Generating Map...' : (
-                <div className="flex items-center gap-2">
-                  <FileDown className="w-5 h-5" />
-                  Download Interactive Map
-                </div>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              disabled={isLoading}
-              className="w-full sm:w-auto text-sm text-gray-500 hover:text-gray-700"
-            >
-              Upload Different File
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
-    if (uploadStep === 'success') {
-      return (
-        <div className="text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8" />
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-2 text-primary dark:text-dark-primary">Your Map is Ready!</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Your map has been downloaded and is ready to be shared.
-            </p>
-          </div>
-          
-          {/* Feedback Form */}
-          {currentMapId && (
-            <div className="mb-8">
-              <FeedbackForm 
-                mapId={currentMapId}
-                onClose={() => {
-                  setShowFeedback(false);
-                  handleReset();
-                }}
-              />
-            </div>
-          )}
-
-          {/* Share and Reset Buttons */}
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button 
-              variant="primary"
-              onClick={handleShare}
-              className="flex items-center gap-2"
-            >
-              <Share2 className="w-4 h-4" />
-              Share Map
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={handleReset}
-            >
-              Create Another Map
-            </Button>
-          </div>
-        </div>
-      );
-    }
+  const handleReset = () => {
+    setMembers([]);
+    setCenter(null);
+    setUploadStep('initial');
+    setCurrentMapId(null);
+    setShowFeedback(false);
+    setShowShare(false);
+    setError(null);
+    setMapName('My Community Map');
   };
 
   return (
@@ -447,6 +374,11 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">uid</td>
+                    <td className="px-4 py-3 text-sm text-green-600">Yes</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">Unique identifier for the community member</td>
+                  </tr>
+                  <tr>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">name</td>
                     <td className="px-4 py-3 text-sm text-green-600">Yes</td>
                     <td className="px-4 py-3 text-sm text-gray-500">Full name of the community member</td>
@@ -510,9 +442,158 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
             isOpen={showShare}
             mapId={currentMapId}
             onClose={() => setShowShare(false)}
+            initialMapName={mapName}
           />
         )}
       </Overlay>
     </section>
   );
+
+  function renderContent() {
+    if (isLoading) {
+      return (
+        <LoadingSpinner 
+          size="lg"
+          message="Processing your data and geocoding locations..."
+          className="py-12"
+        />
+      );
+    }
+
+    if (uploadStep === 'initial') {
+      return (
+        <div className="space-y-6">
+          <FileUpload
+            onFileSelect={handleFileSelect}
+            className="border-2 border-dashed border-accent/20 dark:border-accent-dark/20 hover:border-accent/40 dark:hover:border-accent-dark/40 rounded-xl p-8 transition-colors"
+          />
+
+          {error && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-center gap-3 text-sm text-tertiary dark:text-dark-tertiary">
+            <button 
+              onClick={handleDownloadDemo}
+              className="hover:text-accent dark:hover:text-accent-dark transition-colors inline-flex items-center gap-1"
+            >
+              <FileDown className="w-4 h-4" />
+              Download sample CSV
+            </button>
+            <span>·</span>
+            <button 
+              onClick={() => setShowFormatGuide(true)}
+              className="hover:text-accent dark:hover:text-accent-dark transition-colors inline-flex items-center gap-1"
+            >
+              View formatting guide
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (uploadStep === 'preview' && members.length > 0 && center) {
+      return (
+        <div className="space-y-6">
+          <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
+            <Map
+              members={members}
+              center={center}
+              isLoading={isLoading}
+              variant="preview"
+              settings={mapSettings}
+              onSettingsChange={setMapSettings}
+              name={mapName}
+              onNameChange={handleMapNameChange}
+              mapId={currentMapId || undefined}
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button
+              variant="primary"
+              onClick={handleDownloadMap}
+              disabled={isLoading}
+              className="w-full sm:w-auto sm:min-w-[160px] text-lg"
+            >
+              {isLoading ? 'Generating Map...' : (
+                <div className="flex items-center gap-2">
+                  <FileDown className="w-5 h-5" />
+                  Download Map
+                </div>
+              )}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleShare}
+              disabled={isLoading}
+              className="w-full sm:w-auto sm:min-w-[160px] text-lg"
+            >
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5" />
+                Share Map
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              disabled={isLoading}
+              className="w-full sm:w-auto text-sm text-gray-500 hover:text-gray-700"
+            >
+              Upload Different File
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (uploadStep === 'success') {
+      return (
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2 text-primary dark:text-dark-primary">Your Map is Ready!</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Your map has been downloaded and is ready to be shared.
+            </p>
+          </div>
+          
+          {/* Feedback Form */}
+          {currentMapId && (
+            <div className="mb-8">
+              <FeedbackForm 
+                mapId={currentMapId}
+                onClose={() => {
+                  setShowFeedback(false);
+                  handleReset();
+                }}
+              />
+            </div>
+          )}
+
+          {/* Share and Reset Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Button 
+              variant="primary"
+              onClick={handleShare}
+              className="flex items-center gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Map
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handleReset}
+            >
+              Create Another Map
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
 }

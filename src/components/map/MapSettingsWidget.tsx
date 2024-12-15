@@ -1,146 +1,299 @@
-import React, { useState } from 'react';
-import { Settings2, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Settings2, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'lucide-react';
 import { MapSettings } from '../../types/mapSettings';
 import { Z_INDEX } from '../../constants/zIndex';
+import { cn } from '../../utils/cn';
+import { updateMapName } from '../../services/mapService';
+import { supabase } from '../../config/supabase';
 
 interface MapSettingsWidgetProps {
   settings: MapSettings;
   onSettingsChange: (settings: MapSettings) => void;
+  name: string;
+  onNameChange: (name: string) => void;
+  variant?: 'preview' | 'hero';
   className?: string;
-  variant?: string;
+  mapId?: string;
+  defaultExpanded?: boolean;
 }
 
 export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
   settings,
   onSettingsChange,
+  name,
+  onNameChange,
+  variant = 'preview',
   className,
-  variant,
+  mapId,
+  defaultExpanded = false
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const handleFeatureToggle = (featureKey: keyof MapSettings['features']) => {
+  const handleSettingsChange = (newSettings: Partial<MapSettings>) => {
     onSettingsChange({
       ...settings,
-      features: {
-        ...settings.features,
-        [featureKey]: !settings.features[featureKey],
-      },
+      ...newSettings
     });
   };
 
-  const handleStyleChange = (styleId: string) => {
-    onSettingsChange({
-      ...settings,
-      style: {
-        ...settings.style,
-        id: styleId,
-      },
-    });
+  const syncNameToSupabase = async (newName: string) => {
+    if (!mapId) return;
+    
+    setIsSyncing(true);
+    setIsSynced(false);
+    setSyncError(null);
+    try {
+      await updateMapName(mapId, newName);
+      setIsSynced(true);
+    } catch (error: any) {
+      console.error('Failed to sync map name:', error);
+      setSyncError(error.message || 'Failed to sync map name');
+      // Show error state for 3 seconds
+      setTimeout(() => setSyncError(null), 3000);
+    } finally {
+      setIsSyncing(false);
+      // Reset synced status after 2 seconds
+      if (!syncError) {
+        setTimeout(() => setIsSynced(false), 2000);
+      }
+    }
   };
 
-  const handleMarkerStyleChange = (markerStyle: MapSettings['style']['markerStyle']) => {
-    onSettingsChange({
-      ...settings,
-      style: {
-        ...settings.style,
-        markerStyle,
-      },
-    });
+  const handleNameChange = (newName: string) => {
+    onNameChange(newName);
+    
+    // Clear any existing timeout
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    // Set new timeout to sync after 500ms of no changes
+    syncTimeoutRef.current = setTimeout(() => {
+      syncNameToSupabase(newName);
+    }, 500);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mapId) {
+      // Subscribe to real-time changes for this map
+      const subscription = supabase
+        .channel(`map:${mapId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'maps',
+            filter: `id=eq.${mapId}`
+          },
+          (payload) => {
+            // Update the map name if it changed and it's different from our current value
+            if (payload.new.name !== name) {
+              onNameChange(payload.new.name);
+            }
+          }
+        )
+        .subscribe();
+
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [mapId, name]);
+
+  // Render map name settings only in preview mode
+  const renderMapNameSettings = () => {
+    if (variant !== 'preview') return null;
+    
+    return (
+      <div className="space-y-4 mb-6">
+        <h3 className="text-sm font-medium text-gray-700">Map Name</h3>
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={settings.customization.showName}
+            onChange={(e) =>
+              handleSettingsChange({
+                customization: {
+                  ...settings.customization,
+                  showName: e.target.checked
+                }
+              })
+            }
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            id="show-map-name"
+          />
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Enter map name"
+              className={cn(
+                "w-full px-3 py-1.5 border rounded-md text-sm pr-8",
+                "focus:outline-none focus:ring-2 focus:ring-blue-500",
+                !settings.customization.showName && "text-gray-400 bg-gray-50",
+                syncError && "border-red-500 focus:ring-red-500"
+              )}
+            />
+            {mapId && (
+              <div 
+                className={cn(
+                  "absolute right-2.5 top-1/2 -translate-y-1/2",
+                  "transition-all duration-300",
+                  isSyncing && "animate-spin text-blue-500",
+                  isSynced && "text-green-500",
+                  syncError && "text-red-500",
+                  !isSyncing && !isSynced && !syncError && "text-gray-400"
+                )}
+                title={syncError || undefined}
+              >
+                {syncError ? <AlertCircle size={14} /> : <RefreshCw size={14} />}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className={`absolute ${className}`} style={{ top: 0, right: 0, zIndex: Z_INDEX.MAP_SETTINGS }}>
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden min-w-[240px]">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-100"
-        >
-          <div className="flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">Map Settings</span>
+    <div className={className}>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50"
+      >
+        <Settings2 className="w-5 h-5 text-gray-600" />
+      </button>
+
+      {isExpanded && (
+        <div className="absolute top-12 right-0 w-[325px] bg-white rounded-lg shadow-lg p-4" style={{ zIndex: Z_INDEX.MAP_SETTINGS }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900">Map Settings</h2>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <ChevronUp className="w-5 h-5" />
+            </button>
           </div>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-gray-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-gray-500" />
-          )}
-        </button>
-        
-        {isExpanded && (
-          <div className="p-4 bg-white/95 backdrop-blur-sm">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Features</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.features.enableClustering}
-                      onChange={() => handleFeatureToggle('enableClustering')}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">Enable Clustering</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.features.enableFullscreen}
-                      onChange={() => handleFeatureToggle('enableFullscreen')}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">Fullscreen Button</span>
-                  </label>
-                  {variant !== 'hero' && (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.features.enableSharing}
-                        onChange={() => handleFeatureToggle('enableSharing')}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-600">Share Button</span>
-                    </label>
-                  )}
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.features.enableSearch}
-                      onChange={() => handleFeatureToggle('enableSearch')}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">Search Box</span>
-                  </label>
-                </div>
-              </div>
 
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Map Style</h3>
-                <select
-                  value={settings.style.id}
-                  onChange={(e) => handleStyleChange(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="minimal">Minimal</option>
-                  <option value="dark">Dark</option>
-                  <option value="satellite">Satellite</option>
-                </select>
-              </div>
+          <div className="space-y-6">
+            {/* Map Name Settings - Only in preview mode */}
+            {renderMapNameSettings()}
 
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Marker Style</h3>
-                <select
-                  value={settings.style.markerStyle}
-                  onChange={(e) => handleMarkerStyleChange(e.target.value as MapSettings['style']['markerStyle'])}
-                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="pins">Standard Pins</option>
-                  <option value="photos">Photo Markers</option>
-                </select>
+            {/* Features Section - Always visible */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-gray-700">Features</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.features.enableClustering}
+                    onChange={() => handleSettingsChange({
+                      features: {
+                        ...settings.features,
+                        enableClustering: !settings.features.enableClustering
+                      }
+                    })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-600">Clustering</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.features.enableFullscreen}
+                    onChange={() => handleSettingsChange({
+                      features: {
+                        ...settings.features,
+                        enableFullscreen: !settings.features.enableFullscreen
+                      }
+                    })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-600">Fullscreen</span>
+                </label>
+                {variant === 'preview' && (
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settings.features.enableSharing}
+                      onChange={() => handleSettingsChange({
+                        features: {
+                          ...settings.features,
+                          enableSharing: !settings.features.enableSharing
+                        }
+                      })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-600">Share</span>
+                  </label>
+                )}
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.features.enableSearch}
+                    onChange={() => handleSettingsChange({
+                      features: {
+                        ...settings.features,
+                        enableSearch: !settings.features.enableSearch
+                      }
+                    })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-600">Search</span>
+                </label>
               </div>
             </div>
+
+            {/* Combined Style Section */}
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={settings.style.id}
+                onChange={(e) => handleSettingsChange({
+                  style: {
+                    ...settings.style,
+                    id: e.target.value
+                  }
+                })}
+                className="px-3 py-1.5 border rounded-md text-sm text-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="minimal">Minimal</option>
+                <option value="dark">Dark</option>
+                <option value="satellite">Satellite</option>
+              </select>
+              <select
+                value={settings.style.markerStyle}
+                onChange={(e) => handleSettingsChange({
+                  style: {
+                    ...settings.style,
+                    markerStyle: e.target.value as MapSettings['style']['markerStyle']
+                  }
+                })}
+                className="px-3 py-1.5 border rounded-md text-sm text-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="pins">Standard Pins</option>
+                <option value="photos">Photo Markers</option>
+              </select>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

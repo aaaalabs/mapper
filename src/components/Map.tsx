@@ -13,6 +13,8 @@ import L from 'leaflet';
 import { ShareModal } from './ShareModal';
 import { geocodeLocation } from '../services/geocodingService';
 import { Z_INDEX } from '../constants/zIndex';
+import { updateMapName } from '../services/mapService';
+import { supabase } from '../lib/supabase';
 
 // Fix Leaflet default marker icon
 L.Icon.Default.mergeOptions({
@@ -74,20 +76,26 @@ interface MapProps {
   settings?: MapSettings;
   onSettingsChange?: (settings: MapSettings) => void;
   className?: string;
+  mapId?: string;
+  name?: string;
+  onNameChange?: (name: string) => void;
 }
 
 export const Map: React.FC<MapProps> = ({
   members,
   center,
-  zoom = 4,
+  zoom = 2,
   variant = 'preview',
   settings = defaultMapSettings,
   onSettingsChange,
-  className
+  className,
+  mapId,
+  name = 'My Map',
+  onNameChange
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const showSettings = variant === 'hero' || variant === 'preview';
+  const showSettings = variant === 'hero' || variant === 'preview'; // Show settings widget in both hero and preview modes
   const { features, style, customization } = settings;
   const [searchValue, setSearchValue] = useState('');
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
@@ -130,69 +138,120 @@ export const Map: React.FC<MapProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (mapId && mapId !== 'demo') {
+      // Subscribe to real-time changes for this map
+      const subscription = supabase
+        .channel(`map:${mapId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'maps',
+            filter: `id=eq.${mapId}`
+          },
+          (payload) => {
+            // Update the map name if it changed
+            if (payload.new.name !== name) {
+              onNameChange?.(payload.new.name);
+            }
+          }
+        )
+        .subscribe();
+
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [mapId, name]);
+
+  const handleNameChange = async (newName: string) => {
+    if (onNameChange) {
+      onNameChange(newName);
+      if (mapId && mapId !== 'demo') {
+        try {
+          await updateMapName(mapId, newName);
+        } catch (error) {
+          console.error('Failed to update map name:', error);
+        }
+      }
+    }
+  };
+
   return (
-    <div className="relative w-full h-full" id="map-container">
-      {/* Map Base Layer */}
-      <div className="absolute inset-0">
-        <MapContainer
-          ref={mapRef}
-          center={center}
-          zoom={zoom}
-          className={cn(
-            'w-full h-full rounded-lg',
-            variant === 'hero' && 'rounded-none',
-            className
-          )}
-          attributionControl={false}
-          zoomControl={false}
-          minZoom={2}
+    <div className={cn("relative w-full h-full", className)} id="map-container">
+      <MapContainer
+        center={center}
+        zoom={zoom}
+        ref={mapRef}
+        className={cn(
+          'w-full h-full rounded-lg',
+          variant === 'hero' && 'rounded-none',
+          className
+        )}
+        attributionControl={false}
+        zoomControl={false}
+        minZoom={2}
+        maxZoom={18}
+      >
+        <ZoomControl position="bottomright" />
+        
+        <TileLayer
+          url={currentMapStyle.url}
+          attribution=""
           maxZoom={18}
-        >
-          <ZoomControl position="bottomright" />
-          
-          <TileLayer
-            url={currentMapStyle.url}
-            attribution=""
-            maxZoom={18}
-            subdomains={['a', 'b', 'c']}
-            keepBuffer={8}
-          />
-          
-          {features.enableClustering ? (
-            <MarkerClusterGroup
-              chunkedLoading
-              maxClusterRadius={50}
-              spiderfyOnMaxZoom={true}
-              showCoverageOnHover={false}
-              iconCreateFunction={(cluster: { getChildCount: () => any; }) => {
-                const childCount = cluster.getChildCount();
-                const size = childCount < 10 ? 'small' : childCount < 100 ? 'medium' : 'large';
-                return L.divIcon({
-                  html: `<div style="background-color: ${customization.clusterColor}"><span>${childCount}</span></div>`,
-                  className: `marker-cluster marker-cluster-${size}`,
-                  iconSize: L.point(40, 40)
-                });
-              }}
-            >
-              {members.map((member) => (
-                <MapMarker
-                  key={member.id}
-                  member={member}
-                  settings={settings}
-                />
-              ))}
-            </MarkerClusterGroup>
-          ) : (
-            members.map((member) => (
+          subdomains={['a', 'b', 'c']}
+          keepBuffer={8}
+        />
+        
+        {features.enableClustering ? (
+          <MarkerClusterGroup
+            chunkedLoading
+            maxClusterRadius={50}
+            spiderfyOnMaxZoom={true}
+            showCoverageOnHover={false}
+            iconCreateFunction={(cluster: { getChildCount: () => any; }) => {
+              const childCount = cluster.getChildCount();
+              const size = childCount < 10 ? 'small' : childCount < 100 ? 'medium' : 'large';
+              return L.divIcon({
+                html: `<div style="background-color: ${customization.clusterColor}"><span>${childCount}</span></div>`,
+                className: `marker-cluster marker-cluster-${size}`,
+                iconSize: L.point(40, 40)
+              });
+            }}
+          >
+            {members.map((member, index) => (
               <MapMarker
-                key={member.id}
+                key={`${member.name}-${index}`}
                 member={member}
                 settings={settings}
+                showName={settings.customization.showName}
+                mapId={mapId}
               />
-            ))
-          )}
-        </MapContainer>
-      </div>
+            ))}
+          </MarkerClusterGroup>
+        ) : (
+          members.map((member, index) => (
+            <MapMarker
+              key={`${member.name}-${index}`}
+              member={member}
+              settings={settings}
+              showName={settings.customization.showName}
+              mapId={mapId}
+            />
+          ))
+        )}
+        
+        {customization.showName && name && (variant === 'preview' || variant === 'share' || variant === 'download') && (
+          <div className="absolute inset-x-0 bottom-4 flex justify-center pointer-events-none" style={{ zIndex: Z_INDEX.MAP_SETTINGS }}>
+            <div className="px-4 py-2 bg-white/95 backdrop-blur-sm rounded-full shadow-lg border border-gray-100">
+              <span className="text-sm font-medium text-gray-800">{name}</span>
+            </div>
+          </div>
+        )}
+      </MapContainer>
 
       {/* Controls Overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: Z_INDEX.MAP_CONTROLS }}>
@@ -261,13 +320,16 @@ export const Map: React.FC<MapProps> = ({
         )}
 
         {/* Top Right Settings */}
-        {showSettings && onSettingsChange && (
+        {showSettings && onSettingsChange && onNameChange && (
           <div className="absolute top-4 right-4 pointer-events-auto" style={{ zIndex: Z_INDEX.MAP_BUTTONS }}>
             <MapSettingsWidget
               settings={settings}
               onSettingsChange={onSettingsChange}
+              name={name}
+              onNameChange={handleNameChange}
               variant={variant}
-              className="absolute top-0 right-0"
+              mapId={mapId}
+              defaultExpanded={variant === 'preview'}
             />
           </div>
         )}
@@ -277,7 +339,7 @@ export const Map: React.FC<MapProps> = ({
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        mapId={variant === 'preview' ? 'demo' : 'custom'}
+        mapId={mapId || 'demo'}
       />
     </div>
   );

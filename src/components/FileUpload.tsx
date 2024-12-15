@@ -24,22 +24,30 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
 
   const validateFile = async (file: File): Promise<boolean> => {
     setError(null);
+    console.log('Validating file:', { 
+      name: file.name, 
+      type: file.type, 
+      size: file.size 
+    });
     
     if (!file) {
-      setError({ type: 'empty', message: "No file selected" });
+      const errorMsg = "No file selected";
+      console.error(errorMsg);
+      setError({ type: 'empty', message: errorMsg });
       return false;
     }
     
     if (!file.type && !file.name.endsWith('.csv')) {
-      setError({ type: 'format', message: "Please upload a CSV file" });
+      const errorMsg = "Please upload a CSV file";
+      console.error(errorMsg, { fileType: file.type });
+      setError({ type: 'format', message: errorMsg });
       return false;
     }
     
     if (file.size > MAX_FILE_SIZE) {
-      setError({ 
-        type: 'size', 
-        message: `File size should be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` 
-      });
+      const errorMsg = `File size should be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`;
+      console.error(errorMsg, { fileSize: file.size });
+      setError({ type: 'size', message: errorMsg });
       return false;
     }
 
@@ -47,27 +55,40 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
       // Check CSV structure
       const text = await file.text();
       const lines = text.trim().split('\n');
+      console.log('CSV structure:', { 
+        totalLines: lines.length,
+        firstLine: lines[0]
+      });
       
       if (lines.length < 2) {
-        setError({ type: 'empty', message: "CSV file is empty" });
+        const errorMsg = "CSV file is empty";
+        console.error(errorMsg);
+        setError({ type: 'empty', message: errorMsg });
         return false;
       }
 
       const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      console.log('CSV headers:', headers);
+      
       const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
-
+      
       if (missingColumns.length > 0) {
-        setError({
-          type: 'columns',
-          message: `Missing required columns: ${missingColumns.join(', ')}`
+        const errorMsg = `Missing required columns: ${missingColumns.join(', ')}`;
+        console.error(errorMsg, { 
+          required: REQUIRED_COLUMNS,
+          found: headers 
         });
+        setError({ type: 'columns', message: errorMsg });
         return false;
       }
     } catch (err) {
-      setError({ type: 'process', message: "Failed to read CSV file" });
+      const errorMsg = "Failed to read CSV file";
+      console.error(errorMsg, err);
+      setError({ type: 'process', message: errorMsg });
       return false;
     }
     
+    console.log('File validation successful');
     return true;
   };
 

@@ -1,7 +1,7 @@
 import { CommunityMember } from '../types';
 
-interface MapOptions {
-  markerStyle?: 'default' | 'photos';
+export interface MapOptions {
+  markerStyle?: 'default' | 'photos' | 'pins';
   enableClustering?: boolean;
   enableFullscreen?: boolean;
   enableSharing?: boolean;
@@ -12,12 +12,13 @@ interface MapOptions {
       border?: string;
       shadow?: string;
     };
-    markerStyle?: 'photos';
+    markerStyle?: 'photos' | 'pins';
   };
   customization?: {
     markerColor?: string;
     clusterColor?: string;
     fontFamily?: string;
+    showName?: boolean;
   };
   features?: {
     enableFullscreen?: boolean;
@@ -194,10 +195,29 @@ export function generateStandaloneHtml(
           color: white;
           font-weight: 500;
         }
+        
+        .map-name {
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1000;
+          background: white;
+          padding: 8px 16px;
+          border-radius: 999px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          font-family: var(--font-sans);
+          font-size: 14px;
+          color: #1D3640;
+          pointer-events: none;
+          border: 1px solid rgba(0,0,0,0.1);
+          display: ${options.customization?.showName ? 'block' : 'none'};
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    ${options.customization?.showName ? `<div class="map-name">${options.title || 'Community Map'}</div>` : ''}
     <a href="https://voiceloop.io" target="_blank" class="voiceloop-badge">
         <svg viewBox="0 0 512 512" aria-label="VoiceLoop Logo">
           <path class="fill-current" d="M94.16,359.24c-7.86-5.9-15.27-10.89-22.04-16.65-26.16-22.28-45.88-49.37-59.62-80.86C3.14,240.26-.92,218.02,2.75,194.66c7.65-48.6,34.99-81.49,80.19-99.84,25.92-10.52,53.02-11.72,80.46-9.02,48.93,4.8,93.22,22.32,133.39,50.16,39.29,27.23,70.07,61.65,87.55,106.98,9.26,24.01,13.84,48.79,11.35,74.3-2.68,27.45-13.4,52.12-31.05,73.39-34.62,41.72-79.05,59.58-132.68,51.43-57.94-8.8-104.8-53.62-116.67-110.49-5.67-27.16-2.24-53.86,6.86-79.95,8.78-25.18,21.59-48.14,37.49-69.48,2.78-3.73,5.36-4.77,10.05-3.54,18.29,4.78,35.62,11.75,52.05,21.02,6.64,3.75,6.76,4.49,1.51,10.06-18.72,19.87-34.37,41.76-41.65,68.43-7.81,28.63-4.97,55.69,16.8,77.84,21.03,21.4,46.93,28.61,76,21.32,27.74-6.96,46-25.05,53.91-52.37,5.86-20.26,3.05-40.4-5.17-59.82-13.95-32.98-38.35-56.85-67.04-76.85-25.35-17.67-52.97-30.66-83.4-36.66-20.49-4.04-41.17-5.21-61.57,1.33-27.4,8.78-45.47,34.94-43.14,63.52,1.27,15.57,7.73,29.16,18.64,40.42,2.98,3.08,3.75,5.96,2.82,10.25-5.87,27.02-4.95,53.84,3.19,80.34.88,2.86,1.59,5.77,2.31,8.67.1.41-.22.93-.8,3.15Z"/>
@@ -270,6 +290,14 @@ export function generateStandaloneHtml(
                 iconSize: [44, 44],
                 iconAnchor: [22, 22],
                 popupAnchor: [0, -20]
+              })
+            : options.style?.markerStyle === 'pins' 
+            ? L.divIcon({
+                html: '<div style="background-color: ' + (options.customization?.markerColor || '#E9B893') + '; width: 20px; height: 20px; border-radius: 50%;"></div>',
+                className: '',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                popupAnchor: [0, -10]
               })
             : defaultIcon;
             

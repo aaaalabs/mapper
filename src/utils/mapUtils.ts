@@ -15,7 +15,8 @@ export async function parseCsvFile(file: File): Promise<CommunityMember[]> {
             
             return {
               ...data,
-              id: crypto.randomUUID(),
+              uid: data.uid || crypto.randomUUID(),
+              id: data.uid || crypto.randomUUID(), // Use uid as id if available
               latitude: !isNaN(latitude) ? latitude : 0,
               longitude: !isNaN(longitude) ? longitude : 0
             };

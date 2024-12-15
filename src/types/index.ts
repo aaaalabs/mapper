@@ -1,4 +1,5 @@
 export interface CommunityMember {
+  uid: string;
   id: string;
   name?: string;
   image?: string;

@@ -22,7 +22,8 @@ export const ANALYTICS_EVENTS = {
     VIEW: 'map_viewed',
     ZOOM: 'map_zoomed',
     PAN: 'map_panned',
-    MARKER_CLICK: 'marker_clicked'
+    MARKER_CLICK: 'marker_clicked',
+    PROFILE_LINK_CLICK: 'profile_link_clicked'
   },
   FEEDBACK: {
     RATING: 'feedback_rating_submitted',
@@ -81,9 +82,9 @@ export const trackEvent = async ({ event_name, event_data = {} }: TrackEventPara
       .from('map_analytics_events')
       .insert({
         event_name,
-        event_data,
         session_id: sessionId,
-        created_at: new Date().toISOString()
+        metadata: event_data,
+        timestamp: new Date().toISOString()
       });
 
     if (error) {

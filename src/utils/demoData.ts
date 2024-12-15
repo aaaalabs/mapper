@@ -89,9 +89,11 @@ export function generateDemoMembers(): CommunityMember[] {
     const role = getRandomElement(roles);
     const domain = getRandomElement(domains);
     const username = generateUsername(firstName, lastName);
+    const uid = `demo-${username}-${i}`;
 
     members.push({
-      id: `${username}-${i}`,
+      uid,
+      id: uid,
       name: `${firstName} ${lastName}`,
       location: city.name,
       latitude: city.lat.toString(),
@@ -109,7 +111,7 @@ export function generateDemoMembers(): CommunityMember[] {
 export const demoMembers: CommunityMember[] = generateDemoMembers();
 
 export function generateDemoCsv(): string {
-  const header = 'id,name,title,location,latitude,longitude,image,website,linkedin';
+  const header = 'uid,name,title,location,latitude,longitude,image,website,linkedin';
   const rows = demoMembers.map(member => 
     `${member.id},${member.name},${member.title || ''},"${member.location}",${member.latitude},${member.longitude},${member.image || ''},${member.website || ''},${member.linkedin || ''}`
   );

@@ -11,6 +11,7 @@ export function SharedMap() {
   const [mapData, setMapData] = useState<SavedMap | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showName, setShowName] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('shared-page');
@@ -30,6 +31,7 @@ export function SharedMap() {
       try {
         const data = await getMap(id);
         setMapData(data);
+        setShowName(data.show_name || false);
       } catch (err) {
         setError('Failed to load map');
         console.error('Error loading map:', err);
@@ -64,6 +66,11 @@ export function SharedMap() {
         center={mapData.center}
         zoom={mapData.zoom}
         className="shared-map"
+        mapId={id}
+        name={mapData.name}
+        settings={mapData.settings}
+        variant="share"
+        showName={showName}
       />
       <AttributionBadge />
     </div>

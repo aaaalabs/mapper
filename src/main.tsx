@@ -5,6 +5,8 @@ import App from './App';
 import { SharedMap } from './pages/SharedMap';
 import { EmbedMap } from './pages/EmbedMap';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { HomePage } from './pages/HomePage';
+import { InsightsPage } from './pages/InsightsPage';
 import './index.css';
 
 // Initialize theme
@@ -23,6 +25,16 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
+    children: [
+      {
+        path: '/',
+        element: <HomePage />,
+      },
+      {
+        path: '/insights',
+        element: <InsightsPage />,
+      }
+    ]
   },
   {
     path: '/map/:id',

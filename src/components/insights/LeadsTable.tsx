@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { ChevronDown, ChevronUp, Mail, Link, FileDown, MessageSquare } from 'lucide-react';
-import { Lead } from '../../services/leadService';
+import { Lead, LeadStatus } from '../../services/leadService';
 
 interface LeadsTableProps {
   leads: Lead[];
-  onStatusChange: (leadId: string, newStatus: string) => void;
+  onStatusChange: (leadId: string, newStatus: LeadStatus) => void;
 }
 
 export function LeadsTable({ leads, onStatusChange }: LeadsTableProps) {
@@ -135,7 +135,7 @@ export function LeadsTable({ leads, onStatusChange }: LeadsTableProps) {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <select
                     value={lead.status}
-                    onChange={(e) => onStatusChange(lead.id!, e.target.value)}
+                    onChange={(e) => onStatusChange(lead.id!, e.target.value as LeadStatus)}
                     className="text-sm border-gray-300 rounded-md"
                   >
                     <option value="pending">Pending</option>
@@ -157,7 +157,7 @@ export function LeadsTable({ leads, onStatusChange }: LeadsTableProps) {
                       </a>
                     )}
                     <button
-                      onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
+                      onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : (lead.id ?? null))}
                       className="text-gray-400 hover:text-gray-600"
                     >
                       {expandedLeadId === lead.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -170,9 +170,9 @@ export function LeadsTable({ leads, onStatusChange }: LeadsTableProps) {
                   <td colSpan={6} className="px-6 py-4 bg-gray-50">
                     <div className="text-sm text-gray-600">
                       <h4 className="font-medium mb-2">Interactions</h4>
-                      {lead.metadata?.interactions?.length > 0 ? (
+                      {(lead.metadata?.interactions ?? []).length > 0 ? (
                         <div className="space-y-2">
-                          {lead.metadata.interactions.map((interaction: any, index: number) => (
+                          {lead.metadata?.interactions?.map((interaction: any, index: number) => (
                             <div key={index} className="flex items-center gap-2">
                               {renderInteractionIcon(interaction.type)}
                               <span>{interaction.type.replace('_', ' ')}</span>

@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 import { CommunityMember } from '../types';
 import { MapSettings, defaultMapSettings } from '../types/mapSettings';
-import { trackEvent } from './analytics';
+import { trackEvent, ANALYTICS_EVENTS } from './analytics';
 
 export interface SavedMap {
   id: string;
@@ -52,51 +52,39 @@ class MapError extends Error {
 }
 
 async function trackMapAnalytics(mapId: string, members: CommunityMember[]) {
-  const uniqueLocations = new Set(
-    members.map(m => `${m.latitude},${m.longitude}`)
-  ).size;
-
-  const analytics: Omit<MapAnalytics, 'download_count' | 'share_count'> = {
-    map_id: mapId,
-    total_members: members.length,
-    unique_locations: uniqueLocations
-  };
-
-  const { error } = await supabase
-    .from('map_analytics')
-    .insert([analytics]);
-
-  if (error) {
-    console.error('Failed to track analytics:', error);
+  try {
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.MAP_INTERACTION.VIEW,
+      event_data: {
+        map_id: mapId,
+        total_members: members.length,
+        unique_locations: new Set(members.map(m => m.location)).size
+      }
+    });
+  } catch (error) {
+    console.error('Failed to track map analytics:', error);
   }
 }
 
 export async function trackMapDownload(mapId: string) {
   try {
-    const { error } = await supabase.rpc('increment_map_downloads', {
-      map_id: mapId
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
+      event_data: { map_id: mapId }
     });
-
-    if (error) {
-      console.error('Failed to track download:', error);
-      // Don't throw error to avoid interrupting download
-      return false;
-    }
-    return true;
   } catch (error) {
-    console.error('Failed to track download:', error);
-    // Don't throw error to avoid interrupting download
-    return false;
+    console.error('Failed to track map download:', error);
   }
 }
 
 async function trackMapShare(mapId: string) {
-  const { error } = await supabase.rpc('increment_map_shares', {
-    map_id: mapId
-  });
-
-  if (error) {
-    console.error('Failed to track share:', error);
+  try {
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.MAP_SHARING.COMPLETED,
+      event_data: { map_id: mapId }
+    });
+  } catch (error) {
+    console.error('Failed to track map share:', error);
   }
 }
 
@@ -154,7 +142,7 @@ export async function createMap({
   settings, 
   members, 
   center, 
-  zoom 
+  zoom
 }: Omit<CreateMapInput, 'description'>): Promise<SavedMap> {
   const { data: map, error } = await supabase
     .from('maps')
@@ -177,9 +165,12 @@ export async function createMap({
   }
 
   // Track map creation
-  trackEvent('map_created', {
-    total_members: members.length,
-    unique_locations: new Set(members.map(m => m.location)).size,
+  await trackEvent({
+    event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
+    event_data: {
+      total_members: members.length,
+      unique_locations: new Set(members.map(m => m.location)).size,
+    }
   });
 
   return map;
@@ -228,6 +219,51 @@ export async function updateMapSettings(id: string, settings: MapSettings): Prom
   });
 }
 
+export async function updateMapName(mapId: string, name: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('maps')
+      .update({ name })
+      .eq('id', mapId);
+
+    if (error) {
+      console.error('Supabase error updating map name:', error);
+      throw new MapError(`Failed to update map name: ${error.message}`, error.code);
+    }
+  } catch (error) {
+    console.error('Error updating map name:', error);
+    throw error;
+  }
+}
+
+export async function updateMapNameVisibility(mapId: string, showName: boolean): Promise<void> {
+  try {
+    const { data: map } = await supabase
+      .from('maps')
+      .select('settings')
+      .eq('id', mapId)
+      .single();
+
+    if (!map) {
+      throw new MapError('Map not found');
+    }
+
+    const settings = map.settings || defaultMapSettings;
+    const updatedSettings = {
+      ...settings,
+      customization: {
+        ...settings.customization,
+        showName
+      }
+    };
+
+    await updateMapSettings(mapId, updatedSettings);
+  } catch (error) {
+    console.error('Error updating map name visibility:', error);
+    throw error;
+  }
+}
+
 export async function deleteMap(id: string): Promise<void> {
   const { error } = await supabase
     .from('maps')
@@ -242,4 +278,35 @@ export async function deleteMap(id: string): Promise<void> {
     event_name: 'map_deleted',
     event_data: { map_id: id }
   });
+}
+
+export async function migrateShowNameToSettings(): Promise<void> {
+  // First, get all maps that have show_name column
+  const { data: maps, error: fetchError } = await supabase
+    .from('maps')
+    .select('id, settings, show_name');
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch maps: ${fetchError.message}`);
+  }
+
+  // Update each map to move show_name into settings
+  for (const map of maps) {
+    const settings = {
+      ...map.settings,
+      customization: {
+        ...map.settings?.customization,
+        showName: map.show_name ?? true
+      }
+    };
+
+    const { error: updateError } = await supabase
+      .from('maps')
+      .update({ settings })
+      .eq('id', map.id);
+
+    if (updateError) {
+      console.error(`Failed to update map ${map.id}:`, updateError);
+    }
+  }
 }

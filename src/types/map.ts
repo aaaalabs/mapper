@@ -26,3 +26,6 @@ export interface MapVersion {
     };
   };
 }
+
+// Re-export MapSettings from mapSettings.ts
+export { MapSettings, defaultMapSettings } from './mapSettings';

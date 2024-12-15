@@ -7,18 +7,20 @@ const settings = {
 };
 const defaultAvatar = '';
 
-const members: { 
-  latitude: number; 
-  longitude: number; 
-  image?: string; 
-  name?: string; 
-  location?: string; 
-  title?: string; 
-  linkedin?: string; 
-  website?: string; 
+interface Member {
+  latitude: number;
+  longitude: number;
+  image?: string;
+  name?: string;
+  location?: string;
+  title?: string;
+  linkedin?: string;
+  website?: string;
   description?: string;
   links?: { [platform: string]: string };
-}[] = [
+}
+
+const members: Member[] = [
   // Example member objects
   { latitude: 40.7128, longitude: -74.0060, name: "John Doe", location: "New York", title: "Developer" },
   // Add more members as needed
@@ -82,7 +84,18 @@ export const generateMapScript = (): string => `
   }
 `;
 
-export const generateMemberPopup = (member: any, defaultAvatar: string): string => {
+interface MemberPopup {
+  image?: string;
+  name?: string;
+  title?: string;
+  location?: string;
+  description?: string;
+  website?: string;
+  linkedin?: string;
+  links?: Record<string, string>;
+}
+
+export const generateMemberPopup = (member: MemberPopup, defaultAvatar: string): string => {
   const escapeHtml = (str: string) => str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

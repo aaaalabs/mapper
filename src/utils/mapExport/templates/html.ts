@@ -43,7 +43,8 @@ export async function generateHtml(
       enableClustering: true
     },
     customization: {
-      ...defaultMapSettings.customization
+      ...defaultMapSettings.customization,
+      showName: false  // Always disable map name in exported maps
     },
     ...options
   };

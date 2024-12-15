@@ -19,8 +19,15 @@ ALTER TABLE maps ENABLE ROW LEVEL SECURITY;
 -- Drop existing policies
 DROP POLICY IF EXISTS "Enable insert for anonymous users" ON maps;
 DROP POLICY IF EXISTS "Enable read for anonymous users" ON maps;
+DROP POLICY IF EXISTS "Enable update for anonymous users" ON maps;
 DROP POLICY IF EXISTS "Enable insert for service role" ON maps;
 DROP POLICY IF EXISTS "Enable read for service role" ON maps;
+DROP POLICY IF EXISTS "Enable update for service role" ON maps;
+
+-- Grant necessary permissions to roles
+GRANT ALL ON maps TO anon;
+GRANT ALL ON maps TO authenticated;
+GRANT ALL ON maps TO service_role;
 
 -- Create policy to allow inserts from anonymous users
 CREATE POLICY "Enable insert for anonymous users" ON maps
@@ -32,6 +39,12 @@ CREATE POLICY "Enable read for anonymous users" ON maps
   FOR SELECT TO anon
   USING (true);
 
+-- Create policy to allow updates from anonymous users
+CREATE POLICY "Enable update for anonymous users" ON maps
+  FOR UPDATE TO anon
+  USING (true)
+  WITH CHECK (true);
+
 -- Create policy to allow inserts from authenticated service role
 CREATE POLICY "Enable insert for service role" ON maps
   FOR INSERT TO service_role
@@ -41,6 +54,12 @@ CREATE POLICY "Enable insert for service role" ON maps
 CREATE POLICY "Enable read for service role" ON maps
   FOR SELECT TO service_role
   USING (true);
+
+-- Create policy to allow updates from service role
+CREATE POLICY "Enable update for service role" ON maps
+  FOR UPDATE TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- Add comments
 COMMENT ON TABLE maps IS 'Stores community maps created by users';

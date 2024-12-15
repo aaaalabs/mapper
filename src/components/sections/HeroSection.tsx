@@ -19,7 +19,14 @@ export function HeroSection() {
   const [demoMembers, setDemoMembers] = useState<CommunityMember[]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
   const [hasInteractedWithDemo, setHasInteractedWithDemo] = useState(false);
-  const [mapSettings, setMapSettings] = useState<MapSettings>(defaultMapSettings);
+  const [mapName, setMapName] = useState("Demo Community Map");
+  const [mapSettings, setMapSettings] = useState<MapSettings>({
+    ...defaultMapSettings,
+    customization: {
+      ...defaultMapSettings.customization,
+      showName: false // Explicitly disable map name in hero section
+    }
+  });
 
   useEffect(() => {
     const members = generateDemoMembers();
@@ -105,6 +112,8 @@ export function HeroSection() {
               variant="hero"
               settings={mapSettings}
               onSettingsChange={setMapSettings}
+              name={mapName}
+              onNameChange={setMapName}
             />
           )}
         </div>
