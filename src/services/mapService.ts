@@ -1,16 +1,15 @@
 import { supabase } from '../config/supabase';
 import { CommunityMember } from '../types';
 import { MapSettings, defaultMapSettings } from '../types/mapSettings';
-import { trackEvent, ANALYTICS_EVENTS } from './analytics';
+import { trackEvent, trackFeatureEvent, ANALYTICS_EVENTS, getSessionId } from './analytics';
 
 export interface SavedMap {
   id: string;
   created_at: string;
-  user_id: string;
   name: string;
   settings: MapSettings;
   members: CommunityMember[];
-  center: number[];
+  center: [number, number];
   zoom: number;
 }
 
@@ -53,10 +52,24 @@ class MapError extends Error {
 
 async function trackMapAnalytics(mapId: string, members: CommunityMember[]) {
   try {
+    const session_id = getSessionId();
     await trackEvent({
       event_name: ANALYTICS_EVENTS.MAP_INTERACTION.VIEW,
-      event_data: {
+      session_id,
+      timestamp: new Date().toISOString(),
+      metadata: {
         map_id: mapId,
+        total_members: members.length,
+        unique_locations: new Set(members.map(m => m.location)).size
+      }
+    });
+
+    // Also track as a feature event
+    await trackFeatureEvent({
+      feature_id: mapId,
+      event_type: 'view',
+      success: true,
+      metadata: {
         total_members: members.length,
         unique_locations: new Set(members.map(m => m.location)).size
       }
@@ -70,7 +83,8 @@ export async function trackMapDownload(mapId: string) {
   try {
     await trackEvent({
       event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
-      event_data: { map_id: mapId }
+      metadata: { map_id: mapId },
+      session_id: getSessionId()
     });
   } catch (error) {
     console.error('Failed to track map download:', error);
@@ -81,7 +95,8 @@ async function trackMapShare(mapId: string) {
   try {
     await trackEvent({
       event_name: ANALYTICS_EVENTS.MAP_SHARING.COMPLETED,
-      event_data: { map_id: mapId }
+      metadata: { map_id: mapId },
+      session_id: getSessionId()
     });
   } catch (error) {
     console.error('Failed to track map share:', error);
@@ -139,16 +154,34 @@ async function generateMap(file: File): Promise<string> {
 
 export async function createMap({ 
   name, 
-  settings, 
+  settings = defaultMapSettings, 
   members, 
   center, 
   zoom
 }: Omit<CreateMapInput, 'description'>): Promise<SavedMap> {
+  // Ensure settings are properly merged with defaults
+  const mergedSettings = {
+    ...defaultMapSettings,
+    ...settings,
+    style: {
+      ...defaultMapSettings.style,
+      ...settings?.style,
+    },
+    features: {
+      ...defaultMapSettings.features,
+      ...settings?.features,
+    },
+    customization: {
+      ...defaultMapSettings.customization,
+      ...settings?.customization,
+    },
+  };
+
   const { data: map, error } = await supabase
     .from('maps')
     .insert({
       name,
-      settings: settings || defaultMapSettings,
+      settings: mergedSettings,
       members,
       center,
       zoom
@@ -161,16 +194,13 @@ export async function createMap({
   }
 
   if (!map) {
-    throw new MapError('Failed to create map', 'CREATE_FAILED');
+    throw new MapError('Map creation failed', 'CREATION_FAILED');
   }
 
-  // Track map creation
   await trackEvent({
-    event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
-    event_data: {
-      total_members: members.length,
-      unique_locations: new Set(members.map(m => m.location)).size,
-    }
+    event_name: 'map_created',
+    metadata: { map_id: map.id },
+    session_id: getSessionId()
   });
 
   return map;
@@ -182,7 +212,6 @@ export async function getMap(id: string): Promise<SavedMap> {
     .select(`
       id,
       created_at,
-      user_id,
       name,
       settings,
       members,
@@ -215,7 +244,8 @@ export async function updateMapSettings(id: string, settings: MapSettings): Prom
 
   trackEvent({
     event_name: 'map_settings_updated',
-    event_data: { map_id: id }
+    metadata: { map_id: id },
+    session_id: getSessionId()
   });
 }
 
@@ -276,7 +306,8 @@ export async function deleteMap(id: string): Promise<void> {
 
   trackEvent({
     event_name: 'map_deleted',
-    event_data: { map_id: id }
+    metadata: { map_id: id },
+    session_id: getSessionId()
   });
 }
 

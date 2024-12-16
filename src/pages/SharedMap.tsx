@@ -4,6 +4,7 @@ import { Map } from '../components/Map';
 import { getMap } from '../services/mapService';
 import { SavedMap } from '../services/mapService';
 import { AttributionBadge } from '../components/AttributionBadge';
+import { defaultMapSettings } from '../types/mapSettings';
 import './SharedMap.css';
 
 export function SharedMap() {
@@ -11,7 +12,6 @@ export function SharedMap() {
   const [mapData, setMapData] = useState<SavedMap | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showName, setShowName] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('shared-page');
@@ -30,8 +30,24 @@ export function SharedMap() {
 
       try {
         const data = await getMap(id);
+        // Ensure settings are properly merged with defaults
+        data.settings = {
+          ...defaultMapSettings,
+          ...data.settings,
+          style: {
+            ...defaultMapSettings.style,
+            ...data.settings?.style,
+          },
+          features: {
+            ...defaultMapSettings.features,
+            ...data.settings?.features,
+          },
+          customization: {
+            ...defaultMapSettings.customization,
+            ...data.settings?.customization,
+          },
+        };
         setMapData(data);
-        setShowName(data.show_name || false);
       } catch (err) {
         setError('Failed to load map');
         console.error('Error loading map:', err);
@@ -70,7 +86,6 @@ export function SharedMap() {
         name={mapData.name}
         settings={mapData.settings}
         variant="share"
-        showName={showName}
       />
       <AttributionBadge />
     </div>

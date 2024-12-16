@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../../config/supabase';
+import { AdminMenu } from '../auth/AdminMenu';
 import { LogIn, Users } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Logo } from '../ui/Logo';
@@ -10,6 +13,42 @@ interface NavigationProps {
 }
 
 export function Navigation({ onLoginClick }: NavigationProps) {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const isAdminSession = sessionStorage.getItem('is_admin') === 'true';
+        setIsAdmin(user?.email === 'admin@libralab.ai' && isAdminSession);
+      } catch (err) {
+        console.error('Auth error:', err);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setIsAdmin(false);
+      } else if (event === 'SIGNED_IN') {
+        const isAdminSession = sessionStorage.getItem('is_admin') === 'true';
+        setIsAdmin(session?.user?.email === 'admin@libralab.ai' && isAdminSession);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleAdminAccess = () => {
+    navigate('/admin/login');
+  };
+
   const handleBetaClick = () => {
     scrollToElement('beta-features', 80);
   };
@@ -24,6 +63,17 @@ export function Navigation({ onLoginClick }: NavigationProps) {
       </div>
       <div className="flex items-center gap-4">
         <ThemeToggle />
+        {isAdmin ? (
+          <AdminMenu />
+        ) : (
+          <button
+            onClick={handleAdminAccess}
+            className="p-2 text-gray-500 hover:text-gray-700"
+            title="Admin Access"
+          >
+            {/* <Settings size={20} /> */}
+          </button>
+        )}
         <button 
           onClick={onLoginClick}
           className="hover:text-primary flex items-center gap-2 text-secondary"

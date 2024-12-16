@@ -1,5 +1,6 @@
 import React from 'react';
-import { ResponsiveLine } from '@nivo/line';
+import { ResponsiveLine, LineSvgProps } from '@nivo/line';
+import { AxisLegendPosition } from '@nivo/axes';
 import { format } from 'date-fns';
 
 interface TimeSeriesData {
@@ -16,10 +17,10 @@ interface AnalyticsChartsProps {
 }
 
 export function AnalyticsCharts({ dailyViews, dailyClicks }: AnalyticsChartsProps) {
-  const commonProperties = {
+  const commonProperties: Partial<LineSvgProps> = {
     margin: { top: 20, right: 20, bottom: 60, left: 80 },
     animate: true,
-    enableSlices: 'x',
+    enableSlices: 'x' as const,
     enablePoints: false,
     useMesh: true,
     theme: {

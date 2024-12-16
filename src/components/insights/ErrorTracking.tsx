@@ -13,12 +13,13 @@ interface ErrorMetrics {
 }
 
 interface ErrorEvent {
-  error_type: string;
-  error_message: string;
+  type: string;
+  message: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   status: 'new' | 'investigating' | 'resolved';
   timestamp: string;
   count: number;
+  details?: string;
 }
 
 interface TimeSeriesData {
@@ -129,8 +130,8 @@ const ErrorList = ({ errors }: { errors: ErrorEvent[] }) => {
                     {format(new Date(error.timestamp), 'MMM dd, HH:mm')}
                   </span>
                 </div>
-                <h4 className="mt-2 text-sm font-medium text-gray-900">{error.error_type}</h4>
-                <p className="mt-1 text-sm text-gray-500">{error.error_message}</p>
+                <h4 className="mt-2 text-sm font-medium text-gray-900">{error.type}</h4>
+                <p className="mt-1 text-sm text-gray-500">{error.message}</p>
               </div>
               <div className="ml-6 text-sm text-gray-500">
                 {error.count} occurrences
@@ -146,57 +147,131 @@ const ErrorList = ({ errors }: { errors: ErrorEvent[] }) => {
 export function ErrorTracking({ metrics, recentErrors, timeSeriesData, isLoading }: ErrorTrackingProps) {
   if (isLoading) return <LoadingSkeleton />;
 
-  const getHealthStatus = () => {
-    if (metrics.error_count > 100 || metrics.success_rate < 0.95) return 'critical';
-    if (metrics.error_count > 50 || metrics.success_rate < 0.98) return 'warning';
-    return 'good';
+  const getHealthStatus = (errorCount: number, successRate: number) => {
+    if (errorCount > 100 || successRate < 0.95) return { status: 'critical', color: 'text-red-500' };
+    if (errorCount > 50 || successRate < 0.98) return { status: 'warning', color: 'text-yellow-500' };
+    return { status: 'good', color: 'text-green-500' };
   };
 
-  const getResponseTimeStatus = () => {
-    if (metrics.p95_response_time > 1000) return 'critical';
-    if (metrics.p95_response_time > 500) return 'warning';
-    return 'good';
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
   };
+
+  const errorsByType = recentErrors.reduce((acc, error) => {
+    acc[error.type] = (acc[error.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const healthStatus = getHealthStatus(metrics.error_count, metrics.success_rate);
 
   return (
     <div className="space-y-6">
-      {/* System Health Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <MetricCard
-          title="System Health"
-          value={`${(metrics.success_rate * 100).toFixed(2)}%`}
-          status={getHealthStatus()}
-          trend={`${metrics.error_count} errors today`}
-        />
-        <MetricCard
-          title="Avg Response Time"
-          value={`${metrics.avg_response_time.toFixed(0)}ms`}
-          status={getResponseTimeStatus()}
-          trend={`P95: ${metrics.p95_response_time.toFixed(0)}ms`}
-        />
-        <MetricCard
-          title="Memory Usage"
-          value={`${metrics.memory_usage.toFixed(1)}%`}
-          status={metrics.memory_usage > 90 ? 'critical' : metrics.memory_usage > 70 ? 'warning' : 'good'}
-        />
-        <MetricCard
-          title="CPU Usage"
-          value={`${metrics.cpu_usage.toFixed(1)}%`}
-          status={metrics.cpu_usage > 90 ? 'critical' : metrics.cpu_usage > 70 ? 'warning' : 'good'}
-        />
+      {/* System Health Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">System Health</h3>
+              <div className="mt-1 flex items-baseline">
+                <p className={`text-2xl font-semibold ${healthStatus.color}`}>
+                  {(metrics.success_rate * 100).toFixed(1)}%
+                </p>
+                <p className="ml-2 text-sm text-gray-500">success rate</p>
+              </div>
+            </div>
+            <div className={`p-2 rounded-full ${
+              healthStatus.status === 'good' ? 'bg-green-100' :
+              healthStatus.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100'
+            }`}>
+              {/* ActivityIcon */}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="text-sm text-gray-500">
+              {metrics.error_count} errors in last 24h
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Response Time</h3>
+              <div className="mt-1 flex items-baseline">
+                <p className="text-2xl font-semibold text-gray-900">
+                  {formatDuration(metrics.avg_response_time)}
+                </p>
+                <p className="ml-2 text-sm text-gray-500">average</p>
+              </div>
+            </div>
+            <div className="p-2 rounded-full bg-blue-100">
+              {/* ClockIcon */}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="text-sm text-gray-500">
+              P95: {formatDuration(metrics.p95_response_time)}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Error Rate</h3>
+              <div className="mt-1 flex items-baseline">
+                <p className="text-2xl font-semibold text-gray-900">
+                  {((1 - metrics.success_rate) * 100).toFixed(2)}%
+                </p>
+                <p className="ml-2 text-sm text-gray-500">of requests</p>
+              </div>
+            </div>
+            <div className="p-2 rounded-full bg-red-100">
+              {/* AlertTriangleIcon */}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="text-sm text-gray-500">
+              Top type: {Object.entries(errorsByType).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None'}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Resource Usage</h3>
+              <div className="mt-1 flex items-baseline">
+                <p className="text-2xl font-semibold text-gray-900">
+                  {metrics.memory_usage.toFixed(1)}%
+                </p>
+                <p className="ml-2 text-sm text-gray-500">memory</p>
+              </div>
+            </div>
+            <div className="p-2 rounded-full bg-purple-100">
+              {/* CpuIcon */}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="text-sm text-gray-500">
+              CPU: {metrics.cpu_usage.toFixed(1)}%
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Trends Chart */}
+      {/* Performance Trends */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">System Performance Trends</h3>
         <div className="h-64">
           <ResponsiveLine
             data={[
               {
-                id: 'Errors',
+                id: 'Success Rate',
                 data: timeSeriesData.map(d => ({
                   x: format(new Date(d.date), 'MMM dd'),
-                  y: d.errors
+                  y: d.success_rate * 100
                 }))
               },
               {
@@ -205,23 +280,17 @@ export function ErrorTracking({ metrics, recentErrors, timeSeriesData, isLoading
                   x: format(new Date(d.date), 'MMM dd'),
                   y: d.response_time
                 }))
-              },
-              {
-                id: 'Success Rate',
-                data: timeSeriesData.map(d => ({
-                  x: format(new Date(d.date), 'MMM dd'),
-                  y: d.success_rate * 100
-                }))
               }
             ]}
-            margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
+            margin={{ top: 20, right: 120, bottom: 40, left: 60 }}
             xScale={{
               type: 'point'
             }}
             yScale={{
               type: 'linear',
               min: 'auto',
-              max: 'auto'
+              max: 'auto',
+              stacked: false
             }}
             axisTop={null}
             axisRight={null}
@@ -230,19 +299,24 @@ export function ErrorTracking({ metrics, recentErrors, timeSeriesData, isLoading
               tickPadding: 5,
               tickRotation: -45
             }}
-            pointSize={10}
+            pointSize={8}
             pointColor={{ theme: 'background' }}
             pointBorderWidth={2}
             pointBorderColor={{ from: 'serieColor' }}
             pointLabelYOffset={-12}
             useMesh={true}
+            curve="monotoneX"
+            colors={['#10b981', '#6366f1']}
+            enableArea={true}
+            areaOpacity={0.1}
+            crosshairType="cross"
             legends={[
               {
-                anchor: 'top-right',
-                direction: 'row',
+                anchor: 'right',
+                direction: 'column',
                 justify: false,
-                translateX: 0,
-                translateY: -20,
+                translateX: 100,
+                translateY: 0,
                 itemsSpacing: 0,
                 itemDirection: 'left-to-right',
                 itemWidth: 100,
@@ -255,8 +329,43 @@ export function ErrorTracking({ metrics, recentErrors, timeSeriesData, isLoading
         </div>
       </div>
 
-      {/* Error List */}
-      <ErrorList errors={recentErrors} />
+      {/* Recent Errors List */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Recent Errors
+          </h3>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {recentErrors.slice(0, 5).map((error, index) => (
+            <div key={index} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  {/* AlertCircleIcon */}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {error.type}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {error.message}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {format(new Date(error.timestamp), 'MMM d, HH:mm')}
+                </div>
+              </div>
+              {error.details && (
+                <div className="mt-2">
+                  <pre className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                    {error.details}
+                  </pre>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

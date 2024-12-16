@@ -3,7 +3,7 @@ import { Settings2, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'lucid
 import { MapSettings } from '../../types/mapSettings';
 import { Z_INDEX } from '../../constants/zIndex';
 import { cn } from '../../utils/cn';
-import { updateMapName } from '../../services/mapService';
+import { updateMapName, updateMapSettings } from '../../services/mapService';
 import { supabase } from '../../config/supabase';
 
 interface MapSettingsWidgetProps {
@@ -34,10 +34,41 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
   const syncTimeoutRef = useRef<NodeJS.Timeout>();
 
   const handleSettingsChange = (newSettings: Partial<MapSettings>) => {
-    onSettingsChange({
+    const updatedSettings = {
       ...settings,
       ...newSettings
-    });
+    };
+    onSettingsChange(updatedSettings);
+    
+    // Sync settings with Supabase
+    if (mapId) {
+      setIsSyncing(true);
+      setIsSynced(false);
+      setSyncError(null);
+      
+      // Clear any existing timeout
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+
+      // Update settings in Supabase after a short debounce
+      syncTimeoutRef.current = setTimeout(async () => {
+        try {
+          await updateMapSettings(mapId, updatedSettings);
+          setIsSynced(true);
+        } catch (error) {
+          setSyncError('Failed to sync settings');
+          console.error('Error syncing settings:', error);
+        } finally {
+          setIsSyncing(false);
+          // Clear sync status after 2 seconds
+          setTimeout(() => {
+            setIsSynced(false);
+            setSyncError(null);
+          }, 2000);
+        }
+      }, 500); // 500ms debounce
+    }
   };
 
   const syncNameToSupabase = async (newName: string) => {

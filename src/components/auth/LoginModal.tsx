@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../config/supabase';
+import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
-import { Z_INDEX } from '../../constants/zIndex';
+import { Input } from '../ui/Input';
+import { X } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -11,93 +14,114 @@ interface LoginModalProps {
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (email === 'admin@libralab.ai') {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data?.user) {
+          sessionStorage.setItem('is_admin', 'true');
+          navigate('/insights');
+          onClose();
+        }
+      } else {
+        // For non-admin users, just close the modal
+        onClose();
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestAccess = () => {
+    onClose();
+    // Navigate to beta waitlist section
+    const element = document.getElementById('beta-features');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Add some offset for the header
+      window.scrollBy(0, -80);
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0" style={{ zIndex: Z_INDEX.AUTH_MODAL_BACKDROP }}>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"
-        onClick={onClose}
-      />
+    <Dialog isOpen={isOpen} onClose={onClose}>
+      <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+        >
+          <X size={20} />
+        </button>
 
-      {/* Modal Container */}
-      <div className="relative flex min-h-full items-center justify-center p-4" style={{ zIndex: Z_INDEX.AUTH_MODAL_CONTENT }}>
-        <div className="relative w-full max-w-md transform rounded-lg bg-white p-6 text-left shadow-xl transition-all">
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-          >
-            <X className="h-5 w-5" />
-          </button>
+        <h3 className="text-xl font-semibold mb-4">Beta Access Login</h3>
+        <p className="text-sm text-gray-500 mb-6">
+          Enter your credentials to access beta features
+        </p>
 
-          {/* Modal Content */}
-          <div className="space-y-4">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-900">Beta Access Login</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                Enter your credentials to access beta features
-              </p>
-            </div>
-
-            <form className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  placeholder="you@example.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  placeholder="••••••••"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  <a href="#" className="font-medium text-accent hover:text-accent-alt">
-                    Forgot password?
-                  </a>
-                </div>
-                <div className="text-sm">
-                  <a href="#" className="font-medium text-accent hover:text-accent-alt">
-                    Request access
-                  </a>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Handle login logic here
-                }}
-              >
-                Sign in
-              </Button>
-            </form>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              className="w-full"
+            />
           </div>
-        </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <button
+              type="button"
+              onClick={handleRequestAccess}
+              className="text-primary hover:text-primary-dark"
+            >
+              Request access
+            </button>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? 'Signing in...' : 'Sign in'}
+          </Button>
+        </form>
       </div>
-    </div>
+    </Dialog>
   );
 }

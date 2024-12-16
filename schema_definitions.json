@@ -1,0 +1,86 @@
+{
+  "timestamp": "2024-12-16T03:48:00.980Z",
+  "project": {
+    "name": "Mapper",
+    "description": "A community mapping platform that helps users visualize and manage their community locations",
+    "version": "1.0.0-mvp",
+    "status": "beta",
+    "stack": {
+      "frontend": {
+        "framework": "Next.js",
+        "mapping": "Mapbox",
+        "styling": "Tailwind CSS"
+      },
+      "backend": {
+        "platform": "Supabase",
+        "database": "PostgreSQL",
+        "auth": "Supabase Auth"
+      }
+    },
+    "features": {
+      "core": {
+        "community_mapping": {
+          "description": "Create and manage community maps",
+          "capabilities": [
+            "Custom map styling",
+            "Member location management",
+            "Clustering support",
+            "Fullscreen mode",
+            "Search functionality"
+          ]
+        },
+        "sharing": {
+          "description": "Share maps with community members",
+          "capabilities": [
+            "Public sharing links",
+            "Embedded maps",
+            "Download capabilities"
+          ]
+        }
+      },
+      "analytics": {
+        "description": "Track map usage and performance",
+        "metrics": [
+          "Member engagement",
+          "Feature usage",
+          "Performance metrics",
+          "Error tracking"
+        ]
+      },
+      "feedback": {
+        "description": "Gather user feedback and manage leads",
+        "types": [
+          "Satisfaction ratings",
+          "Testimonials",
+          "Use case collection",
+          "Beta waitlist"
+        ]
+      }
+    },
+    "access_control": {
+      "roles": {
+        "admin": "Full system access",
+        "user": "Map creation and management",
+        "viewer": "Map viewing only"
+      },
+      "auth": {
+        "beta_access": "Limited to approved users",
+        "admin_email": "admin@libralab.ai"
+      }
+    }
+  },
+  "database": {
+    "name": "mapper",
+    "version": "PostgreSQL 15",
+    "extensions": [
+      "postgis",
+      "uuid-ossp"
+    ],
+    "schemas": {
+      "tables": {},
+      "views": {},
+      "indexes": [],
+      "constraints": []
+    }
+  }
+}

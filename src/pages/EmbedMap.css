@@ -79,6 +79,16 @@
   text-decoration: none !important;
 }
 
+/* Mobile styles for attribution badge */
+@media (max-width: 640px) {
+  .attribution-badge {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: 1rem !important;
+    white-space: nowrap !important;
+  }
+}
+
 .dark .attribution-badge {
   background-color: rgba(17, 24, 39, 0.9) !important;
 }
