@@ -1,21 +1,28 @@
 /* Map Popup Styles */
-.map-popup .leaflet-popup-content-wrapper {
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.leaflet-popup.map-popup {
+  max-width: none !important;
 }
 
-.map-popup .leaflet-popup-content {
-  margin: 0;
-  min-width: 200px;
+.leaflet-popup.map-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  width: 300px !important;
+  max-width: none !important;
 }
 
-.map-popup .leaflet-popup-close-button {
+.leaflet-popup.map-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: 300px !important;
+  max-width: none !important;
+}
+
+.leaflet-popup.map-popup .leaflet-popup-close-button {
   color: #666;
   font-size: 16px;
   padding: 8px;
 }
 
-.map-popup .leaflet-popup-close-button:hover {
+.leaflet-popup.map-popup .leaflet-popup-close-button:hover {
   color: #333;
 }
 

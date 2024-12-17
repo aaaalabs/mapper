@@ -1,0 +1,123 @@
+# Mapper Development Rules
+Every time you choose to apply a rule(s), explicitly state the rule number in the output. You can abbreviate the rule description to a single word or phrase.
+
+# Project Context
+Mapper is a modern web application for interactive data visualization and analytics with the following key features:
+- Interactive map visualization with clustering and custom markers
+- Advanced data analytics with Nivo/Recharts charts
+- Secure payment processing via Revolut
+- Real-time data management with Supabase
+- Mobile-first responsive design
+- Anonymous user session tracking
+- Public access to visualization features
+
+## Tech Infrastructure
+- Frontend: React 18 with TypeScript
+- Database: Supabase
+- Visualization: Leaflet, Nivo, Recharts
+- Styling: Tailwind CSS
+- Build Tool: Vite
+- Payment: Revolut Integration
+- Routing: React Router
+
+## Code Style and Structure
+- Write concise, technical TypeScript code with accurate examples
+- Use functional and declarative programming patterns; avoid classes
+- Prefer iteration and modularization over code duplication
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
+
+## Repository Structure
+mapper/ 
+├── src/ 
+   ├── components/ # React components 
+       ├── ui/ # Shared UI components 
+       ├── map/ # Map-related components 
+       ├── charts/ # Data visualization components 
+       └── payment/ # Payment-related components 
+   ├── services/ # API and business logic 
+   ├── hooks/ # Custom React hooks 
+   ├── utils/ # Helper functions 
+   ├── types/ # TypeScript types 
+   ├── lib/ # Shared libraries 
+└── assets/ # Static assets 
+├── api/ # API routes 
+├── supabase/ # Database migrations and config 
+└── public/ # Static files
+
+
+# Code Organization
+[001] Use src/components/{feature}/ structure for related components
+[002] Keep all Supabase table names prefixed with map_ or maps_
+[003] Place all reusable hooks in src/hooks/ with use prefix
+[004] Place all type definitions in src/types/ with proper namespacing
+
+# TypeScript Best Practices
+[101] Use explicit return types for all functions
+[102] Use interfaces over types for object definitions
+[103] Use discriminated unions for complex state management
+[104] Use strict null checks
+
+# Component Guidelines
+[201] Split components when they exceed 100 lines
+[202] Use custom hooks for complex state logic
+[203] Implement proper cleanup in useEffect
+[204] Use proper error boundaries for map and chart components
+
+# Data Visualization
+[301] Maintain consistent chart theming across the application
+[302] Use proper TypeScript types for chart data
+[303] Implement loading states for all data visualizations
+[304] Handle empty/error states gracefully
+
+# Map Interactions
+[401] Use proper zoom levels for map interactions
+[402] Implement clustering for large datasets
+[403] Handle map boundary cases
+[404] Cache map data when appropriate
+
+# Performance
+[501] Implement proper data pagination
+[502] Use React.memo for expensive renders
+[503] Optimize map marker rendering
+[504] Use proper Supabase query optimization
+
+# Error Handling
+[601] Log all errors with proper context
+[602] Provide user-friendly error messages
+[603] Handle network failures gracefully
+[604] Implement proper payment error handling
+
+# Security
+[701] Use proper Supabase RLS policies EXCEPT for anonymous user tracking
+[701a] Anonymous sessions must be tracked without RLS for public access
+[702] Never expose sensitive data in logs
+[703] Implement proper CORS handling
+[704] Secure all payment flows
+
+# Git Workflow
+[801] Use conventional commit messages
+[802] Update changelog for all notable changes
+[803] Run migrations in correct order
+[804] Update types after schema changes
+
+# UI/UX Guidelines
+[901] Never modify UI without explicit user approval
+[902] All UI changes must be requested or commanded by the user
+[903] Use consistent UI styles across the application
+[904] Use proper accessibility features for all components
+[905] Follow mobile-first approach for all component designs
+
+# Documentation Guidelines
+[1001] Document all non-obvious code with inline comments
+[1002] Keep README.md up-to-date with setup and development instructions
+[1003] Document all environment variables in .env.example
+[1004] Add JSDoc comments for all public functions and interfaces
+[1005] Include examples for complex component usage
+[1006] Document all Supabase table schemas and relationships
+[1007] Maintain changelog for all API changes
+[1008] Document all chart configuration options
+[1009] Keep map configuration options documented
+[1010] Document performance considerations for data-heavy features
+
+# Windsurf Specific Rules
+[9001] Automatically suggest additions for .windsurfrules where best practices are used during the development process

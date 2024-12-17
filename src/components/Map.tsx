@@ -15,72 +15,82 @@ import { geocodeLocation } from '../services/geocodingService';
 import { Z_INDEX } from '../constants/zIndex';
 import { updateMapName } from '../services/mapService';
 import { supabase } from '../lib/supabase';
+import { useMapTiles } from '../hooks/useMapTiles';
+import { useToast } from '../components/ui/toast';
 
-// Fix Leaflet default marker icon
+// Fix Leaflet default marker icon paths
 L.Icon.Default.mergeOptions({
   iconUrl: '/images/leaflet/marker-icon.png',
   iconRetinaUrl: '/images/leaflet/marker-icon-2x.png',
   shadowUrl: '/images/leaflet/marker-shadow.png',
 });
 
-// Add Leaflet popup styles
+/**
+ * Custom styles for Leaflet popups to match our application theme
+ */
 const popupStyles = `
   .leaflet-popup-content-wrapper {
     background-color: white;
-    color: #1D3640;
     border-radius: 8px;
-    padding: 0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  }
-  .leaflet-popup-content {
-    margin: 0;
-    min-width: 200px;
-  }
-  .leaflet-popup-tip {
-    background-color: white;
-  }
-  .leaflet-popup {
-    margin-bottom: 0;
-  }
-  .map-popup img {
-    border-radius: 50%;
-    width: 4rem;
-    height: 4rem;
-    object-fit: cover;
-  }
-  .leaflet-popup-close-button {
-    display: none;
-  }
-  .leaflet-popup .text-accent {
-    color: #E9B893;
-  }
-  .leaflet-popup .bg-accent/10 {
-    background-color: rgba(233, 184, 147, 0.1);
-  }
-  .leaflet-popup a:hover {
-    opacity: 0.8;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
 `;
 
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = popupStyles;
-  document.head.appendChild(style);
-}
-
+/**
+ * Props for the Map component
+ * @interface MapProps
+ */
 interface MapProps {
+  /** Array of community members to display on the map */
   members: CommunityMember[];
+  /** Initial center coordinates [latitude, longitude] */
   center: [number, number];
+  /** Initial zoom level (default: 2) */
   zoom?: number;
+  /** Map variant for different use cases */
   variant?: 'hero' | 'preview' | 'share' | 'download';
+  /** Map display settings */
   settings?: MapSettings;
+  /** Callback for when map settings change */
   onSettingsChange?: (settings: MapSettings) => void;
+  /** Additional CSS classes */
   className?: string;
+  /** Unique identifier for the map */
   mapId?: string;
+  /** Display name for the map */
   name?: string;
+  /** Callback for when map name changes */
   onNameChange?: (name: string) => void;
 }
 
+/**
+ * Interactive map component with clustering, custom markers, and configurable settings
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <Map
+ *   members={communityMembers}
+ *   center={[51.505, -0.09]}
+ *   zoom={13}
+ *   variant="preview"
+ *   settings={mapSettings}
+ *   onSettingsChange={handleSettingsChange}
+ * />
+ * ```
+ * 
+ * @performance
+ * - Uses marker clustering for large datasets
+ * - Implements proper cleanup in useEffect
+ * - Caches map tiles for better performance
+ * 
+ * @accessibility
+ * - Supports keyboard navigation
+ * - Provides ARIA labels for interactive elements
+ * 
+ * @see {@link MapMarker} for individual marker implementation
+ * @see {@link MapSettingsWidget} for settings configuration
+ */
 export const Map: React.FC<MapProps> = ({
   members,
   center,
@@ -93,16 +103,75 @@ export const Map: React.FC<MapProps> = ({
   name = 'My Map',
   onNameChange
 }) => {
+  /**
+   * Reference to the Leaflet map instance
+   */
   const mapRef = useRef<L.Map | null>(null);
+
+  /**
+   * State for the share modal
+   */
   const [showShareModal, setShowShareModal] = useState(false);
-  const showSettings = variant === 'hero' || variant === 'preview'; // Show settings widget in both hero and preview modes
-  const { features, style, customization } = settings;
+
+  /**
+   * State for the search input
+   */
   const [searchValue, setSearchValue] = useState('');
+
+  /**
+   * State for settings visibility
+   */
+  const [showSettings, setShowSettings] = useState(variant === 'preview');
+
+  /**
+   * Timeout reference for debouncing search input
+   */
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Get the current map style configuration
-  const currentMapStyle = mapStyles[style.id] || mapStyles.standard;
+  /**
+   * Toast notification hook
+   */
+  const { addToast } = useToast();
 
+  /**
+   * Map tiles hook
+   */
+  const { } = useMapTiles({
+    onError: (error) => {
+      addToast({
+        title: 'Map Loading Issue',
+        description: 'There was a problem loading some map tiles. The map may appear incomplete.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  /**
+   * Get the current map style configuration
+   */
+  const currentMapStyle = mapStyles[settings.style.id] || mapStyles.standard;
+
+  /**
+   * Handle search input change
+   * @param e
+   */
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchValue(value);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearch(value);
+    }, 500);
+  };
+
+  /**
+   * Handle search input submission
+   * @param value
+   */
   const handleSearch = async (value: string) => {
     try {
       const location = await geocodeLocation(value);
@@ -117,19 +186,9 @@ export const Map: React.FC<MapProps> = ({
     }
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      handleSearch(value);
-    }, 500);
-  };
-
+  /**
+   * Toggle full screen mode
+   */
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
       document.getElementById('map-container')?.requestFullscreen();
@@ -138,6 +197,9 @@ export const Map: React.FC<MapProps> = ({
     }
   };
 
+  /**
+   * Effect for subscribing to real-time map updates
+   */
   useEffect(() => {
     if (mapId && mapId !== 'demo') {
       // Subscribe to real-time changes for this map
@@ -167,6 +229,10 @@ export const Map: React.FC<MapProps> = ({
     }
   }, [mapId, name]);
 
+  /**
+   * Handle map name change
+   * @param newName
+   */
   const handleNameChange = async (newName: string) => {
     if (onNameChange) {
       onNameChange(newName);
@@ -200,13 +266,19 @@ export const Map: React.FC<MapProps> = ({
         
         <TileLayer
           url={currentMapStyle.url}
-          attribution=""
+          attribution={currentMapStyle.attribution}
           maxZoom={18}
           subdomains={['a', 'b', 'c']}
           keepBuffer={8}
+          eventHandlers={{
+            tileerror: (error) => {
+              console.error('Tile loading error:', error);
+            },
+          }}
+          errorTileUrl="/images/error-tile.png"
         />
         
-        {features.enableClustering ? (
+        {settings.features.enableClustering ? (
           <MarkerClusterGroup
             chunkedLoading
             maxClusterRadius={50}
@@ -216,7 +288,7 @@ export const Map: React.FC<MapProps> = ({
               const childCount = cluster.getChildCount();
               const size = childCount < 10 ? 'small' : childCount < 100 ? 'medium' : 'large';
               return L.divIcon({
-                html: `<div style="background-color: ${customization.clusterColor}"><span>${childCount}</span></div>`,
+                html: `<div style="background-color: ${settings.customization.clusterColor}"><span>${childCount}</span></div>`,
                 className: `marker-cluster marker-cluster-${size}`,
                 iconSize: L.point(40, 40)
               });
@@ -244,7 +316,7 @@ export const Map: React.FC<MapProps> = ({
           ))
         )}
         
-        {customization.showName && name && (variant === 'preview' || variant === 'share' || variant === 'download') && (
+        {settings.customization.showName && name && (variant === 'preview' || variant === 'share' || variant === 'download') && (
           <div className="absolute inset-x-0 bottom-4 flex justify-center pointer-events-none" style={{ zIndex: Z_INDEX.MAP_SETTINGS }}>
             <div className="px-4 py-2 bg-white/95 backdrop-blur-sm rounded-full shadow-lg border border-gray-100">
               <span className="text-sm font-medium text-gray-800">{name}</span>
@@ -256,9 +328,9 @@ export const Map: React.FC<MapProps> = ({
       {/* Controls Overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: Z_INDEX.MAP_CONTROLS }}>
         {/* Top Left Controls */}
-        {(features.enableSharing || features.enableFullscreen) && (
+        {(settings.features.enableSharing || settings.features.enableFullscreen) && (
           <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-auto" style={{ zIndex: Z_INDEX.MAP_BUTTONS }}>
-            {features.enableSharing && (variant === 'preview' || variant === 'share') && (
+            {settings.features.enableSharing && (variant === 'preview' || variant === 'share') && (
               <button
                 onClick={() => setShowShareModal(true)}
                 className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 transition-colors"
@@ -267,7 +339,7 @@ export const Map: React.FC<MapProps> = ({
               </button>
             )}
             
-            {features.enableFullscreen && (
+            {settings.features.enableFullscreen && (
               <button
                 onClick={toggleFullScreen}
                 className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 transition-colors"
@@ -291,7 +363,7 @@ export const Map: React.FC<MapProps> = ({
         )}
 
         {/* Top Center Search */}
-        {features.enableSearch && (
+        {settings.features.enableSearch && (
           <div className="absolute left-1/2 -translate-x-1/2 top-4 pointer-events-auto" style={{ zIndex: Z_INDEX.MAP_SEARCH }}>
             <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:shadow-lg transition-shadow p-2 px-4 flex items-center gap-2 min-w-[300px]">
               <svg 
@@ -327,7 +399,7 @@ export const Map: React.FC<MapProps> = ({
               onSettingsChange={onSettingsChange}
               name={name}
               onNameChange={handleNameChange}
-              variant={variant}
+              variant={variant === 'hero' || variant === 'preview' ? variant : undefined}
               mapId={mapId}
               defaultExpanded={variant === 'preview'}
             />

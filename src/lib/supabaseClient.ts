@@ -13,22 +13,41 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     storageKey: 'mapper_auth',
     detectSessionInUrl: true,
-    autoRefreshToken: true,
-    flowType: 'implicit'  // Add this to ensure proper handling of anonymous sessions
+    autoRefreshToken: true
   },
   db: {
     schema: 'public'
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json'
+    }
   }
 });
 
-// Ensure we have an anonymous session
-supabase.auth.getSession().then(({ data: { session } }) => {
+// Initialize anonymous session if needed
+const initializeAnonymousSession = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  
   if (!session) {
-    // Sign in anonymously if no session exists
-    supabase.auth.signInWithoutPassword({});
-  }
-}).catch(console.error);
+    try {
+      const timestamp = new Date().getTime();
+      const { error } = await supabase.auth.signUp({
+        email: `anon_${timestamp}_${Math.random().toString(36).slice(2)}@mapper.local`,
+        password: crypto.randomUUID(),
+      });
 
-// Export both default and named exports
-export { supabase };
+      if (error) {
+        console.error('Error creating anonymous session:', error);
+      }
+    } catch (error) {
+      console.error('Failed to initialize anonymous session:', error);
+    }
+  }
+};
+
+// Initialize the session
+initializeAnonymousSession();
+
 export default supabase;
+export { supabase };

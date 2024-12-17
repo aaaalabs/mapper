@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../config/supabase';
+import { supabase } from '../../lib/supabase';
 import { AdminMenu } from '../auth/AdminMenu';
 import { LogIn, Users } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -10,9 +10,10 @@ import { scrollToElement } from '../../utils/scrollUtils';
 
 interface NavigationProps {
   onLoginClick: () => void;
+  onBetaWaitlistClick?: () => void;
 }
 
-export function Navigation({ onLoginClick }: NavigationProps) {
+export function Navigation({ onLoginClick, onBetaWaitlistClick }: NavigationProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
@@ -50,17 +51,21 @@ export function Navigation({ onLoginClick }: NavigationProps) {
   };
 
   const handleBetaClick = () => {
-    scrollToElement('beta-features', 80);
+    if (onBetaWaitlistClick) {
+      onBetaWaitlistClick();
+    } else {
+      scrollToElement('beta-features', 80);
+    }
   };
 
   return (
     <nav className="flex items-center justify-between p-6">
-      <div className="flex items-center gap-2">
+      <Link to="/" className="flex items-center gap-2 hover:opacity-80">
         <Logo className="h-8 w-8 text-primary" />
         <span className="font-semibold text-primary">
           mapper.voiceloop.io
         </span>
-      </div>
+      </Link>
       <div className="flex items-center gap-4">
         <ThemeToggle />
         {isAdmin ? (

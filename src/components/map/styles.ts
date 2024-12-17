@@ -1,10 +1,8 @@
 import { MapSettings, defaultMapSettings } from '../../types/mapSettings';
 
 export const getPopupStyles = (settings: MapSettings = defaultMapSettings) => {
-  // Ensure we have default values even if settings is incomplete
-  const style = settings?.style || defaultMapSettings.style;
-  const customization = settings?.customization || defaultMapSettings.customization;
-  const popupStyle = style?.popupStyle || defaultMapSettings.style.popupStyle;
+  const popupStyle = settings?.style?.popupStyle || defaultMapSettings.style.popupStyle;
+  const fontFamily = settings?.customization?.fontFamily || defaultMapSettings.customization.fontFamily;
   
   return {
     wrapper: {
@@ -15,26 +13,34 @@ export const getPopupStyles = (settings: MapSettings = defaultMapSettings) => {
     },
     image: {
       borderRadius: '50%',
-      width: '4rem',
-      height: '4rem',
-      objectFit: 'cover' as const,
+      border: '2px solid ' + popupStyle.border,
+      backgroundColor: popupStyle.background,
     },
     title: {
       color: popupStyle.text,
-      fontFamily: customization.fontFamily,
-      fontSize: '1.125rem',
+      fontSize: '0.9rem',
       fontWeight: 600,
+      fontFamily,
+      letterSpacing: '-0.01em',
+    },
+    subtitle: {
+      color: popupStyle.text,
+      opacity: 0.9,
+      fontFamily,
+      letterSpacing: '-0.01em',
     },
     text: {
       color: popupStyle.text,
       opacity: 0.8,
-      fontSize: '0.875rem',
+      fontFamily,
+      letterSpacing: '-0.01em',
     },
     link: {
-      color: customization.markerColor,
-      '&:hover': {
-        opacity: 0.8,
-      },
+      color: popupStyle.text,
+      opacity: 0.9,
+      fontFamily,
+      transition: 'all 0.15s ease-in-out',
+      fontWeight: 500,
     },
   };
 };

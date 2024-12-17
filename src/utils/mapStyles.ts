@@ -5,7 +5,7 @@ export const mapStyles: Record<string, MapStyle> = {
     id: 'standard',
     name: 'Standard',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     popupStyle: {
       background: '#FFFFFF',
       text: '#1D3640',
@@ -16,8 +16,8 @@ export const mapStyles: Record<string, MapStyle> = {
   satellite: {
     id: 'satellite',
     name: 'Satellite',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '',
+    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    attribution: '© Google',
     popupStyle: {
       background: 'rgba(0, 0, 0, 0.8)',
       text: '#FFFFFF',
@@ -28,8 +28,8 @@ export const mapStyles: Record<string, MapStyle> = {
   terrain: {
     id: 'terrain',
     name: 'Terrain',
-    url: 'https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png',
-    attribution: '',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenTopoMap',
     popupStyle: {
       background: '#F0FDF4',
       text: '#166534',
@@ -40,7 +40,7 @@ export const mapStyles: Record<string, MapStyle> = {
   dark: {
     id: 'dark',
     name: 'Dark',
-    url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '',
     popupStyle: {
       background: '#1F2937',
@@ -52,7 +52,7 @@ export const mapStyles: Record<string, MapStyle> = {
   hybrid: {
     id: 'hybrid',
     name: 'Hybrid',
-    url: 'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '',
     popupStyle: {
       background: '#EEF2FF',

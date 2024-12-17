@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
   
+  console.log('Configuring Vite with Revolut API key:', env.VITE_REVOLUT_SANDBOX_SK ? 'Present' : 'Missing');
+
   return {
     plugins: [react()],
     resolve: {
@@ -22,23 +24,43 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api\/geocode/, '/x949oltyqbmwlgkw9wrikm8tb3cc8krn'),
           configure: (proxy, _options) => {
             proxy.on('proxyReq', (proxyReq, req, _res) => {
-              // Keep using 'location' parameter without transforming to 'locator'
               const url = new URL(req.url!, 'http://dummy.com');
               proxyReq.path = `/x949oltyqbmwlgkw9wrikm8tb3cc8krn?location=${url.searchParams.get('location')}`;
             });
           },
         },
+        '/api/revolut': {
+          target: 'https://sandbox-merchant.revolut.com/api/1.0',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/api\/revolut/, ''),
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              // Use the secret key for authentication
+              proxyReq.setHeader('Authorization', `Bearer ${env.VITE_REVOLUT_SANDBOX_SK}`);
+            });
+
+            proxy.on('error', (err, req, res) => {
+              console.error('Proxy error:', err);
+            });
+          }
+        },
       },
       headers: {
-        'Content-Security-Policy': `
-          default-src 'self';
-          img-src 'self' data: https: blob:;
-          script-src 'self' 'unsafe-inline' 'unsafe-eval';
-          style-src 'self' 'unsafe-inline';
-          connect-src 'self' https://jduhhbvmjoampjgsgpej.supabase.co wss://jduhhbvmjoampjgsgpej.supabase.co https://*.tile.openstreetmap.org https://hook.eu1.make.com;
-          frame-src 'self';
-          font-src 'self' data:;
-        `.replace(/\s+/g, ' ').trim()
+        'Content-Security-Policy': [
+          // Allow resources from trusted domains
+          "default-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co;",
+          // Allow images from trusted sources
+          "img-src 'self' data: https://*.tile.openstreetmap.org https://*.imagekit.io https://*.unsplash.com https://images.unsplash.com https://*.licdn.com https://media.licdn.com;",
+          // Allow connections to APIs
+          "connect-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co;",
+          // Allow frames for Revolut checkout
+          "frame-src 'self' https://sandbox-merchant.revolut.com;",
+          // Allow scripts with unsafe-inline for React
+          "script-src 'self' 'unsafe-inline' https://sandbox-merchant.revolut.com;",
+          // Allow styles with unsafe-inline for Tailwind
+          "style-src 'self' 'unsafe-inline';"
+        ].join('; ')
       }
     },
     build: {

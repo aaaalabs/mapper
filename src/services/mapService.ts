@@ -1,7 +1,7 @@
-import { supabase } from '../config/supabase';
+import { supabase } from '../lib/supabase';
 import { CommunityMember } from '../types';
 import { MapSettings, defaultMapSettings } from '../types/mapSettings';
-import { trackEvent, trackFeatureEvent, ANALYTICS_EVENTS, getSessionId } from './analytics';
+import { trackEvent, ANALYTICS_EVENTS, getSessionId } from './analytics';
 
 export interface SavedMap {
   id: string;
@@ -52,38 +52,56 @@ class MapError extends Error {
 
 async function trackMapAnalytics(mapId: string, members: CommunityMember[]) {
   try {
-    const session_id = getSessionId();
+    // Calculate analytics
+    const totalMembers = members.length;
+    const uniqueLocations = new Set(members.map(m => `${m.latitude},${m.longitude}`)).size;
+
+    // Get existing analytics
+    const { data: existingAnalytics, error: fetchError } = await supabase
+      .from('map_analytics')
+      .select('*')
+      .eq('map_id', mapId)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching map analytics:', fetchError);
+      return;
+    }
+
+    // Track analytics event
     await trackEvent({
       event_name: ANALYTICS_EVENTS.MAP_INTERACTION.VIEW,
-      session_id,
-      timestamp: new Date().toISOString(),
-      metadata: {
+      event_data: {
         map_id: mapId,
-        total_members: members.length,
-        unique_locations: new Set(members.map(m => m.location)).size
+        total_members: totalMembers,
+        unique_locations: uniqueLocations,
+        is_update: !!existingAnalytics
       }
     });
 
-    // Also track as a feature event
-    await trackFeatureEvent({
-      feature_id: mapId,
-      event_type: 'view',
-      success: true,
-      metadata: {
-        total_members: members.length,
-        unique_locations: new Set(members.map(m => m.location)).size
-      }
-    });
+    // Update or insert analytics record
+    const { error: upsertError } = await supabase
+      .from('map_analytics')
+      .upsert({
+        map_id: mapId,
+        total_members: totalMembers,
+        unique_locations: uniqueLocations,
+        updated_at: new Date().toISOString()
+      });
+
+    if (upsertError) {
+      console.error('Error updating map analytics:', upsertError);
+    }
   } catch (error) {
-    console.error('Failed to track map analytics:', error);
+    console.error('Error in trackMapAnalytics:', error);
   }
 }
 
 export async function trackMapDownload(mapId: string) {
   try {
     await trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
-      metadata: { map_id: mapId },
+      event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETE,
+      event_data: { map_id: mapId },
       session_id: getSessionId()
     });
   } catch (error) {
@@ -91,11 +109,11 @@ export async function trackMapDownload(mapId: string) {
   }
 }
 
-async function trackMapShare(mapId: string) {
+export async function trackMapShare(mapId: string) {
   try {
     await trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_SHARING.COMPLETED,
-      metadata: { map_id: mapId },
+      event_name: ANALYTICS_EVENTS.MAP_SHARING.COMPLETE,
+      event_data: { map_id: mapId },
       session_id: getSessionId()
     });
   } catch (error) {
@@ -197,10 +215,10 @@ export async function createMap({
     throw new MapError('Map creation failed', 'CREATION_FAILED');
   }
 
+  // Track event creation
   await trackEvent({
-    event_name: 'map_created',
-    metadata: { map_id: map.id },
-    session_id: getSessionId()
+    event_name: ANALYTICS_EVENTS.MAP_CREATION.CREATED,
+    event_data: { map_id: map.id }
   });
 
   return map;
@@ -233,20 +251,24 @@ export async function getMap(id: string): Promise<SavedMap> {
 }
 
 export async function updateMapSettings(id: string, settings: MapSettings): Promise<void> {
-  const { error } = await supabase
-    .from('maps')
-    .update({ settings })
-    .eq('id', id);
+  try {
+    const { error } = await supabase
+      .from('maps')
+      .update({ settings })
+      .eq('id', id);
 
-  if (error) {
-    throw new Error(`Failed to update map settings: ${error.message}`);
+    if (error) {
+      throw new MapError(error.message, error.code);
+    }
+
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.MAP_INTERACTION.SETTINGS_UPDATED,
+      event_data: { map_id: id }
+    });
+  } catch (error) {
+    console.error('Error updating map settings:', error);
+    throw new MapError('Failed to update map settings');
   }
-
-  trackEvent({
-    event_name: 'map_settings_updated',
-    metadata: { map_id: id },
-    session_id: getSessionId()
-  });
 }
 
 export async function updateMapName(mapId: string, name: string): Promise<void> {
@@ -295,20 +317,24 @@ export async function updateMapNameVisibility(mapId: string, showName: boolean):
 }
 
 export async function deleteMap(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('maps')
-    .delete()
-    .eq('id', id);
+  try {
+    const { error } = await supabase
+      .from('maps')
+      .delete()
+      .eq('id', id);
 
-  if (error) {
-    throw new Error(`Failed to delete map: ${error.message}`);
+    if (error) {
+      throw new MapError(error.message, error.code);
+    }
+
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.MAP_INTERACTION.DELETE,
+      event_data: { map_id: id }
+    });
+  } catch (error) {
+    console.error('Error deleting map:', error);
+    throw new MapError('Failed to delete map');
   }
-
-  trackEvent({
-    event_name: 'map_deleted',
-    metadata: { map_id: id },
-    session_id: getSessionId()
-  });
 }
 
 export async function migrateShowNameToSettings(): Promise<void> {

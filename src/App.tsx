@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { 
+  BrowserRouter as Router, 
+  Routes, 
+  Route, 
+  Outlet,
+  createBrowserRouter,
+  RouterProvider
+} from 'react-router-dom';
 import { Navigation } from './components/layout/Navigation';
 import { LoginModal } from './components/auth/LoginModal';
 import { AdminLogin } from './components/auth/AdminLogin';
@@ -9,6 +16,8 @@ import { InsightsPage } from './pages/InsightsPage';
 import { SharedMap } from './pages/SharedMap';
 import { EmbedMap } from './pages/EmbedMap';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './components/ui/toast';
+import { OrderPage } from './pages/OrderPage';
 
 const AppLayout = () => {
   const [showLogin, setShowLogin] = useState(false);
@@ -25,23 +34,34 @@ const AppLayout = () => {
   );
 };
 
-const App = () => {
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <AppLayout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'insights', element: <InsightsPage /> },
+      { path: 'map/:id', element: <SharedMap /> },
+      { path: 'map/:id/embed', element: <EmbedMap /> },
+      { path: 'embed/:id', element: <EmbedMap /> },
+      { path: 'admin/login', element: <AdminLogin /> }
+    ]
+  },
+  // Standalone routes
+  {
+    path: '/order',
+    element: <OrderPage />
+  }
+]);
+
+export function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <Routes>
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<HomePage />} />
-            <Route path="insights" element={<InsightsPage />} />
-          </Route>
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/map/:id" element={<SharedMap />} />
-          <Route path="/map/:id/embed" element={<EmbedMap />} />
-          <Route path="/embed/:id" element={<EmbedMap />} />
-        </Routes>
-      </Router>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </ErrorBoundary>
   );
-};
+}
 
 export default App;

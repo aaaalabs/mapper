@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../config/supabase';
+import { supabase } from '../../lib/supabase';
 import { Settings } from 'lucide-react';
 
 export function AdminMenu() {

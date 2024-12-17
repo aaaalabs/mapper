@@ -170,9 +170,9 @@ export function LeadsTable({ leads, onStatusChange }: LeadsTableProps) {
                   <td colSpan={6} className="px-6 py-4 bg-gray-50">
                     <div className="text-sm text-gray-600">
                       <h4 className="font-medium mb-2">Interactions</h4>
-                      {(lead.metadata?.interactions ?? []).length > 0 ? (
+                      {(lead.event_data?.interactions ?? []).length > 0 ? (
                         <div className="space-y-2">
-                          {lead.metadata?.interactions?.map((interaction: any, index: number) => (
+                          {lead.event_data?.interactions?.map((interaction: any, index: number) => (
                             <div key={index} className="flex items-center gap-2">
                               {renderInteractionIcon(interaction.type)}
                               <span>{interaction.type.replace('_', ' ')}</span>

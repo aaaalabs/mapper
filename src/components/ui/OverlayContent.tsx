@@ -3,7 +3,7 @@ import { cn } from '../../utils/cn';
 
 interface OverlayContentProps {
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }
@@ -22,9 +22,9 @@ export function OverlayContent({
             {title}
           </h3>
           {description && (
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <div className="mt-2">
               {description}
-            </p>
+            </div>
           )}
         </div>
       )}
