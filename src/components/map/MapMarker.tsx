@@ -28,7 +28,7 @@ export function MapMarker({ member, settings, showName = true, mapId }: MapMarke
     iconUrl: getMarkerIcon(settings.style.markerStyle, member),
     iconSize: settings.style.markerStyle === 'photos' ? [markerSize, markerSize] : [markerSize, 41],
     iconAnchor: settings.style.markerStyle === 'photos' ? [markerSize/2, markerSize/2] : [markerSize/2, 41],
-    popupAnchor: settings.style.markerStyle === 'photos' ? [0, -(markerSize/2)] : [0, -41],
+    popupAnchor: settings.style.markerStyle === 'photos' ? [0, -(markerSize/4)] : [0, -20],
     className: settings.style.markerStyle === 'photos' ? 'rounded-full' : undefined,
   });
 
@@ -67,7 +67,7 @@ export function MapMarker({ member, settings, showName = true, mapId }: MapMarke
         maxWidth={350}
         minWidth={300}
         autoPan={true}
-        offset={[0, settings.style.markerStyle === 'photos' ? -markerSize/2 : -41]}
+        offset={[0, -10]}
       >
         <MapPopup member={member} settings={settings} mapId={mapId} />
       </Popup>
