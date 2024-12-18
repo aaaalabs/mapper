@@ -49,6 +49,13 @@ export const MapPopup: React.FC<MapPopupProps> = ({
     });
   };
 
+  const formatUrl = (url: string): string => {
+    if (!url) return '';
+    return url.startsWith('http://') || url.startsWith('https://')
+      ? url
+      : `https://${url}`;
+  };
+
   return (
     <div className={cn(
       "flex flex-col items-center text-center",
@@ -114,7 +121,7 @@ export const MapPopup: React.FC<MapPopupProps> = ({
         <div className="grid grid-cols-1 gap-1.5 w-full">
           {member.website && (
             <a
-              href={member.website}
+              href={formatUrl(member.website)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => handleLinkClick('website', member.website)}
