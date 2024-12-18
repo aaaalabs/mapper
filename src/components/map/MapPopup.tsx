@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CommunityMember } from '../../types';
 import { MapSettings, defaultMapSettings } from '../../types/mapSettings';
 import { getPopupStyles } from './styles';
@@ -20,8 +20,23 @@ export const MapPopup: React.FC<MapPopupProps> = ({
   className,
   mapId 
 }) => {
+  const isDarkTheme = settings.style.id === 'dark';
   const styles = React.useMemo(() => getPopupStyles(settings), [settings]);
-  
+
+  useEffect(() => {
+    // Update theme on the body element
+    if (isDarkTheme) {
+      document.body.setAttribute('data-theme', 'dark');
+    } else {
+      document.body.removeAttribute('data-theme');
+    }
+
+    return () => {
+      // Cleanup
+      document.body.removeAttribute('data-theme');
+    };
+  }, [isDarkTheme]);
+
   const handleLinkClick = (linkType: 'website' | 'linkedin', link: string) => {
     trackEvent({
       event_name: ANALYTICS_EVENTS.MAP_INTERACTION.PROFILE_LINK_CLICK,
@@ -35,7 +50,10 @@ export const MapPopup: React.FC<MapPopupProps> = ({
   };
 
   return (
-    <div className="p-2.5 flex flex-col items-center text-center">
+    <div className={cn(
+      "flex flex-col items-center text-center",
+      isDarkTheme ? "text-gray-50" : "text-gray-900"
+    )}>
       {/* Profile Image */}
       {member.image && (
         <div className="mb-1.5">
@@ -43,7 +61,10 @@ export const MapPopup: React.FC<MapPopupProps> = ({
             src={member.image}
             alt={member.name || 'Member'}
             style={styles.image}
-            className="rounded-full w-14 h-14 object-cover"
+            className={cn(
+              "rounded-full w-14 h-14 object-cover",
+              isDarkTheme && "ring-1 ring-gray-500"
+            )}
           />
         </div>
       )}
@@ -51,17 +72,26 @@ export const MapPopup: React.FC<MapPopupProps> = ({
       {/* Profile Info */}
       <div className="w-full space-y-0.5 mb-1">
         {member.name && (
-          <h3 style={styles.title} className="font-semibold leading-snug">
+          <h3 className={cn(
+            "font-semibold text-base leading-snug",
+            isDarkTheme ? "text-gray-50" : "text-gray-900"
+          )}>
             {member.name}
           </h3>
         )}
         {member.title && (
-          <p style={styles.subtitle} className="text-sm leading-snug">
+          <p className={cn(
+            "text-sm leading-snug",
+            isDarkTheme ? "text-gray-200" : "text-gray-700"
+          )}>
             {member.title}
           </p>
         )}
         {member.location && (
-          <p style={styles.text} className="text-xs leading-snug">
+          <p className={cn(
+            "text-xs leading-snug",
+            isDarkTheme ? "text-gray-300" : "text-gray-600"
+          )}>
             {member.location}
           </p>
         )}
@@ -70,7 +100,10 @@ export const MapPopup: React.FC<MapPopupProps> = ({
       {/* Description */}
       {member.description && (
         <div className="w-full mb-1.5">
-          <p style={styles.text} className="text-sm line-clamp-2">
+          <p className={cn(
+            "text-sm line-clamp-2",
+            isDarkTheme ? "text-gray-200" : "text-gray-700"
+          )}>
             {member.description}
           </p>
         </div>
@@ -85,7 +118,12 @@ export const MapPopup: React.FC<MapPopupProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => handleLinkClick('website', member.website)}
-              className="flex items-center justify-center gap-1 px-2.5 py-1 text-xs rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              className={cn(
+                "flex items-center justify-center gap-1 px-2.5 py-1 text-xs rounded-full transition-colors",
+                isDarkTheme 
+                  ? "bg-gray-700 hover:bg-gray-600 text-gray-50 border border-gray-500" 
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              )}
             >
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -100,7 +138,12 @@ export const MapPopup: React.FC<MapPopupProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => handleLinkClick('linkedin', member.linkedin)}
-              className="flex items-center justify-center gap-1 px-2.5 py-1 text-xs rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              className={cn(
+                "flex items-center justify-center gap-1 px-2.5 py-1 text-xs rounded-full transition-colors",
+                isDarkTheme 
+                  ? "bg-gray-700 hover:bg-gray-600 text-gray-50 border border-gray-500" 
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              )}
             >
               <Linkedin size={12} />
               LinkedIn

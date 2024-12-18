@@ -50,10 +50,10 @@ export default defineConfig(({ mode }) => {
         'Content-Security-Policy': [
           // Allow resources from trusted domains
           "default-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co;",
-          // Allow images from trusted sources
-          "img-src 'self' data: https://*.tile.openstreetmap.org https://*.imagekit.io https://*.unsplash.com https://images.unsplash.com https://*.licdn.com https://media.licdn.com;",
-          // Allow connections to APIs
-          "connect-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co;",
+          // Allow images from trusted sources including map tiles
+          "img-src 'self' data: https://*.tile.openstreetmap.org https://*.imagekit.io https://*.unsplash.com https://images.unsplash.com https://*.licdn.com https://media.licdn.com https://*.google.com https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://*.global.ssl.fastly.net;",
+          // Allow connections to APIs and WebSocket
+          "connect-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co wss://*.supabase.co;",
           // Allow frames for Revolut checkout
           "frame-src 'self' https://sandbox-merchant.revolut.com;",
           // Allow scripts with unsafe-inline for React

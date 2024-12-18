@@ -24,7 +24,7 @@ export function HeroSection() {
     ...defaultMapSettings,
     customization: {
       ...defaultMapSettings.customization,
-      showName: false // Explicitly disable map name in hero section
+      showName: false // Keep map name disabled in hero section
     }
   });
 

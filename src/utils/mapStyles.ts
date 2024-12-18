@@ -40,13 +40,13 @@ export const mapStyles: Record<string, MapStyle> = {
   dark: {
     id: 'dark',
     name: 'Dark',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '',
+    url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://carto.com/attributions">CARTO</a>',
     popupStyle: {
       background: '#1F2937',
-      text: '#F3F4F6',
-      border: '#374151',
-      shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+      text: '#F9FAFB',
+      border: '#4B5563',
+      shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.7)'
     }
   },
   hybrid: {

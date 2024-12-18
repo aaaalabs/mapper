@@ -3,6 +3,7 @@ import { MapSettings, defaultMapSettings } from '../../types/mapSettings';
 export const getPopupStyles = (settings: MapSettings = defaultMapSettings) => {
   const popupStyle = settings?.style?.popupStyle || defaultMapSettings.style.popupStyle;
   const fontFamily = settings?.customization?.fontFamily || defaultMapSettings.customization.fontFamily;
+  const isDarkTheme = settings.style.id === 'dark';
   
   return {
     wrapper: {
@@ -13,7 +14,7 @@ export const getPopupStyles = (settings: MapSettings = defaultMapSettings) => {
     },
     image: {
       borderRadius: '50%',
-      border: '2px solid ' + popupStyle.border,
+      border: '2px solid ' + (isDarkTheme ? '#4B5563' : popupStyle.border),
       backgroundColor: popupStyle.background,
     },
     title: {
@@ -25,19 +26,18 @@ export const getPopupStyles = (settings: MapSettings = defaultMapSettings) => {
     },
     subtitle: {
       color: popupStyle.text,
-      opacity: 0.9,
+      opacity: isDarkTheme ? 0.8 : 0.9,
       fontFamily,
       letterSpacing: '-0.01em',
     },
     text: {
       color: popupStyle.text,
-      opacity: 0.8,
+      opacity: isDarkTheme ? 0.7 : 0.8,
       fontFamily,
       letterSpacing: '-0.01em',
     },
     link: {
-      color: popupStyle.text,
-      opacity: 0.9,
+      color: 'currentColor',
       fontFamily,
       transition: 'all 0.15s ease-in-out',
       fontWeight: 500,

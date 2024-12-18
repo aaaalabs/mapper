@@ -99,14 +99,44 @@
     @apply absolute inset-y-0 left-0 bg-gradient-to-r from-accent to-accent-alt transition-all duration-300 ease-out pointer-events-none;
   }
 
-  /* Leaflet Popup Overrides */
-  .leaflet-popup-content {
-    margin: 8px !important;
-    width: 120px !important;
+  /* Leaflet Base Overrides - keeping with dark theme overrides for proper cascade */
+  .leaflet-popup-content-wrapper {
+    width: calc(100% + 20px) !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
   }
 
-  .leaflet-popup-content p {
+  .leaflet-popup-content {
     margin: 0 !important;
+    width: 100% !important;
+    min-width: 180px !important;
+    padding: 10px !important;
+  }
+
+  /* Leaflet Dark Theme Overrides */
+  body[data-theme='dark'] .leaflet-popup-content-wrapper,
+  body[data-theme='dark'] .leaflet-popup-tip {
+    background: #1F2937 !important;
+    color: #F9FAFB !important;
+    border-color: #4B5563 !important;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.4) !important;
+  }
+
+  body[data-theme='dark'] .leaflet-container a.leaflet-popup-close-button {
+    color: #F9FAFB !important;
+  }
+
+  body[data-theme='dark'] .leaflet-container a.leaflet-popup-close-button:hover {
+    color: #D1D5DB !important;
+  }
+
+  body[data-theme='dark'] .leaflet-popup-content {
+    color: #F9FAFB !important;
+  }
+
+  /* Dark theme button text */
+  body[data-theme='dark'] .leaflet-popup-content a {
+    color: #F9FAFB !important;
   }
 
   /* DatePicker Custom Styles */

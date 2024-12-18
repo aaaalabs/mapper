@@ -121,7 +121,12 @@ export const Map: React.FC<MapProps> = ({
   /**
    * State for settings visibility
    */
-  const [showSettings, setShowSettings] = useState(variant === 'preview');
+  const [showSettings, setShowSettings] = useState(variant === 'preview' || variant === 'hero');
+
+  /**
+   * Only show name settings for preview variant
+   */
+  const showNameSettings = variant === 'preview';
 
   /**
    * Timeout reference for debouncing search input
@@ -392,13 +397,13 @@ export const Map: React.FC<MapProps> = ({
         )}
 
         {/* Top Right Settings */}
-        {showSettings && onSettingsChange && onNameChange && (
+        {showSettings && onSettingsChange && (
           <div className="absolute top-4 right-4 pointer-events-auto" style={{ zIndex: Z_INDEX.MAP_BUTTONS }}>
             <MapSettingsWidget
               settings={settings}
               onSettingsChange={onSettingsChange}
-              name={name}
-              onNameChange={handleNameChange}
+              name={showNameSettings ? name : undefined}
+              onNameChange={showNameSettings ? handleNameChange : undefined}
               variant={variant === 'hero' || variant === 'preview' ? variant : undefined}
               mapId={mapId}
               defaultExpanded={variant === 'preview'}
