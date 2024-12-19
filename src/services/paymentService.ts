@@ -107,18 +107,25 @@ export const createRevolutOrder = async (orderData: CreatePaymentOrderDTO): Prom
     // Generate a unique merchant order reference
     const merchantOrderRef = `order_${uuidv4()}`;
 
+    // Convert amount to cents
+    const amountInCents = Math.round(orderData.amount * 100);
+
     console.log('Creating Revolut order with data:', {
-      amount: Math.round(orderData.amount * 100),
+      amount: amountInCents,
       currency: orderData.currency,
-      merchant_order_ext_ref: merchantOrderRef
+      merchant_order_ext_ref: merchantOrderRef,
+      customer_email: orderData.metadata?.customerEmail,
+      customer_name: orderData.metadata?.customerName
     });
 
     // Create order in Revolut
     const revolutResponse = await revolutApi.post('/orders', {
-      amount: Math.round(orderData.amount * 100),
+      amount: amountInCents,
       currency: orderData.currency,
       merchant_order_ext_ref: merchantOrderRef,
-      description: 'Data extraction session'
+      description: 'Data extraction session',
+      customer_email: orderData.metadata?.customerEmail,
+      customer_name: orderData.metadata?.customerName
     });
 
     console.log('Revolut order created:', revolutResponse.data);

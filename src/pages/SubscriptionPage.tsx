@@ -54,9 +54,12 @@ export function SubscriptionPage() {
     try {
       // Create order
       const { publicId } = await createRevolutOrder({
-        amount: 990, // €9.90 in cents
+        amount: 9.90, // €9.90 (will be converted to cents in paymentService)
         currency: 'EUR',
-        customerEmail: email
+        metadata: {
+          customerEmail: email,
+          customerName: name // Pre-fill customer name
+        }
       });
 
       // Initialize Revolut Checkout
@@ -69,7 +72,7 @@ export function SubscriptionPage() {
       await trackEvent({
         event_name: ANALYTICS_EVENTS.PAYMENT.INITIATED,
         event_data: {
-          amount: 990,
+          amount: 9.90,
           currency: 'EUR',
           service: 'data_extraction'
         }
@@ -82,7 +85,7 @@ export function SubscriptionPage() {
           trackEvent({
             event_name: ANALYTICS_EVENTS.PAYMENT.COMPLETED,
             event_data: {
-              amount: 990,
+              amount: 9.90,
               currency: 'EUR',
               service: 'data_extraction'
             }

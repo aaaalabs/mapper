@@ -135,10 +135,11 @@ export function SupportSection() {
 
       // Create Revolut order
       const { publicId } = await createRevolutOrder({
-        amount: 990, // €9.90 in cents
+        amount: 9.90, // €9.90 (will be converted to cents in paymentService)
         currency: 'EUR',
         metadata: {
-          customerEmail: formData.email
+          customerEmail: formData.email,
+          customerName: formData.name // Pre-fill customer name
         }
       });
 

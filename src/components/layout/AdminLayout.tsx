@@ -10,6 +10,7 @@ import {
   ArrowLeftOnRectangleIcon as LogoutIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
+import { Logo } from '@/components/ui/Logo';
 
 const navigation = [
   { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
@@ -24,16 +25,16 @@ export function AdminLayout() {
   const { signOut } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        <div className="flex min-h-0 flex-1 flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-          <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-            <div className="flex flex-shrink-0 items-center px-4">
-              <img
-                className="h-8 w-auto"
-                src="/logo.svg"
-                alt="Mapper Admin"
-              />
+    <div className="min-h-screen bg-background">
+      <div className="flex h-screen">
+        {/* Sidebar */}
+        <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+          <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-border bg-background px-6 pb-4">
+            <div className="flex h-16 items-center">
+              <Link to="/admin" className="flex items-center gap-2">
+                <Logo className="h-8 w-8" />
+                <span className="text-xl font-semibold">Mapper Admin</span>
+              </Link>
             </div>
             <nav className="mt-5 flex-1 space-y-1 px-2">
               {navigation.map((item) => {
@@ -77,21 +78,22 @@ export function AdminLayout() {
             </button>
           </div>
         </div>
-      </div>
-      <div className="flex flex-1 flex-col md:pl-64">
-        <main className="flex-1">
-          <div className="py-6">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-              <Suspense fallback={
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent"></div>
-                </div>
-              }>
-                <Outlet />
-              </Suspense>
+        {/* Main content */}
+        <div className="flex-1 overflow-y-auto">
+          <main className="flex-1">
+            <div className="py-6">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
+                <Suspense fallback={
+                  <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent"></div>
+                  </div>
+                }>
+                  <Outlet />
+                </Suspense>
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );

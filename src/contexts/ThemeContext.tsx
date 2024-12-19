@@ -5,12 +5,45 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  defaultTheme?: string;
+  storageKey?: string;
+  customTheme?: {
+    light: {
+      background: string;
+      'background-alt': string;
+      foreground: string;
+      'muted-foreground': string;
+      border: string;
+      primary: string;
+      'primary-foreground': string;
+      muted: string;
+    };
+    dark: {
+      background: string;
+      'background-alt': string;
+      foreground: string;
+      'muted-foreground': string;
+      border: string;
+      primary: string;
+      'primary-foreground': string;
+      muted: string;
+    };
+  };
+}
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ 
+  children, 
+  defaultTheme = 'system',
+  storageKey = 'theme',
+  customTheme
+}: ThemeProviderProps) {
   const [isDark, setIsDark] = useState(() => {
     // Check localStorage first
-    const stored = localStorage.getItem('theme');
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       return stored === 'dark';
     }
@@ -38,7 +71,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const toggleTheme = () => {
     setIsDark(!isDark);
-    localStorage.setItem('theme', !isDark ? 'dark' : 'light');
+    localStorage.setItem(storageKey, !isDark ? 'dark' : 'light');
   };
 
   return (
