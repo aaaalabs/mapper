@@ -58,7 +58,8 @@ revolutApi.interceptors.response.use(
 export const initializeRevolutPay = async () => {
   const { revolutPay } = await RevolutCheckout.payments({
     publicToken: import.meta.env.VITE_REVOLUT_SANDBOX_PK,
-    mode: 'sandbox' // Change to 'prod' for production
+    mode: 'sandbox', // Change to 'prod' for production
+    locale: 'en' // Adding required locale parameter
   });
   return revolutPay;
 };

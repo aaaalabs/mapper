@@ -49,18 +49,18 @@ interface MapProps {
   zoom?: number;
   /** Map variant for different use cases */
   variant?: 'hero' | 'preview' | 'share' | 'download';
-  /** Map display settings */
+  /** Map settings configuration */
   settings?: MapSettings;
-  /** Callback for when map settings change */
+  /** Callback for settings changes */
   onSettingsChange?: (settings: MapSettings) => void;
-  /** Additional CSS classes */
+  /** Additional className for styling */
   className?: string;
   /** Unique identifier for the map */
   mapId?: string;
-  /** Display name for the map */
+  /** Name of the map */
   name?: string;
-  /** Callback for when map name changes */
-  onNameChange?: (name: string) => void;
+  /** Callback for name changes */
+  onNameChange?: (name: string) => Promise<void>;
 }
 
 /**
@@ -240,13 +240,11 @@ export const Map: React.FC<MapProps> = ({
    */
   const handleNameChange = async (newName: string) => {
     if (onNameChange) {
-      onNameChange(newName);
-      if (mapId && mapId !== 'demo') {
-        try {
-          await updateMapName(mapId, newName);
-        } catch (error) {
-          console.error('Failed to update map name:', error);
-        }
+      try {
+        await onNameChange(newName);
+      } catch (error) {
+        console.error('Failed to update map name:', error);
+        // You might want to show a toast notification here
       }
     }
   };
@@ -403,7 +401,7 @@ export const Map: React.FC<MapProps> = ({
               settings={settings}
               onSettingsChange={onSettingsChange}
               name={showNameSettings ? name : undefined}
-              onNameChange={showNameSettings ? handleNameChange : undefined}
+              onNameChange={showNameSettings ? onNameChange : undefined}
               variant={variant === 'hero' || variant === 'preview' ? variant : undefined}
               mapId={mapId}
               defaultExpanded={variant === 'preview'}

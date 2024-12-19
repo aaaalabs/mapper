@@ -47,7 +47,7 @@ export function BetaWaitlistModal({ isOpen, onClose, source = 'default' }: BetaW
 
     try {
       await trackEvent({
-        event_name: 'beta_signup',
+        event_name: ANALYTICS_EVENTS.BETA.SIGNUP,
         event_data: { 
           ...formData,
           source // Track where the signup came from
@@ -58,7 +58,8 @@ export function BetaWaitlistModal({ isOpen, onClose, source = 'default' }: BetaW
         email: formData.email,
         name: formData.firstName,
         community_link: formData.communityLink,
-        lead_type: 'beta_waitlist'
+        lead_type: 'beta_waitlist',
+        status: 'pending'
       });
 
       setShowSuccess(true);

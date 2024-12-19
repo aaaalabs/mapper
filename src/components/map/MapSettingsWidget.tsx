@@ -9,8 +9,8 @@ import { supabase } from '../../config/supabase';
 interface MapSettingsWidgetProps {
   settings: MapSettings;
   onSettingsChange: (settings: MapSettings) => void;
-  name: string;
-  onNameChange: (name: string) => void;
+  name?: string;
+  onNameChange?: (name: string) => Promise<void>;
   variant?: 'preview' | 'hero';
   className?: string;
   mapId?: string;
@@ -94,18 +94,26 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
     }
   };
 
-  const handleNameChange = (newName: string) => {
-    onNameChange(newName);
-    
-    // Clear any existing timeout
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
-    }
+  const handleNameChange = async (newName: string) => {
+    try {
+      if (onNameChange) {
+        await onNameChange(newName);
+      }
+      
+      // Clear any existing timeout
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
 
-    // Set new timeout to sync after 500ms of no changes
-    syncTimeoutRef.current = setTimeout(() => {
-      syncNameToSupabase(newName);
-    }, 500);
+      // Set new timeout to sync after 500ms of no changes
+      syncTimeoutRef.current = setTimeout(() => {
+        syncNameToSupabase(newName);
+      }, 500);
+    } catch (error) {
+      console.error('Failed to update map name:', error);
+      setSyncError('Failed to update map name');
+      setTimeout(() => setSyncError(null), 3000);
+    }
   };
 
   // Cleanup timeout on unmount
@@ -130,10 +138,16 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
             table: 'maps',
             filter: `id=eq.${mapId}`
           },
-          (payload) => {
+          async (payload) => {
             // Update the map name if it changed and it's different from our current value
-            if (payload.new.name !== name) {
-              onNameChange(payload.new.name);
+            if (payload.new.name && payload.new.name !== name) {
+              try {
+                if (onNameChange) {
+                  await onNameChange(payload.new.name);
+                }
+              } catch (error) {
+                console.error('Failed to update map name from real-time update:', error);
+              }
             }
           }
         )
@@ -144,7 +158,7 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
         subscription.unsubscribe();
       };
     }
-  }, [mapId, name]);
+  }, [mapId, name, onNameChange]);
 
   // Render map name settings only in preview mode
   const renderMapNameSettings = () => {

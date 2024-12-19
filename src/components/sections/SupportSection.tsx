@@ -137,7 +137,9 @@ export function SupportSection() {
       const { publicId } = await createRevolutOrder({
         amount: 990, // €9.90 in cents
         currency: 'EUR',
-        customerEmail: formData.email
+        metadata: {
+          customerEmail: formData.email
+        }
       });
 
       // Initialize Revolut Checkout

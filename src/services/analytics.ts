@@ -50,6 +50,9 @@ export const ANALYTICS_EVENTS = {
     CANCELLED: 'payment_cancelled',
     ERROR: 'payment_error'
   },
+  BETA: {
+    SIGNUP: 'beta_signup'
+  },
   ORDER: {
     COMPLETION_VIEW: 'order_completion_view',
     BOOKING_STARTED: 'order_booking_started',

@@ -37,7 +37,7 @@ export const RevolutPayButton = ({
         const orderData: CreatePaymentOrderDTO = {
           amount,
           currency,
-          session_id: session?.id || null,
+          session_id: session?.id || undefined,
           metadata: {
             ...metadata,
             session_metadata: session?.metadata || {}
@@ -85,7 +85,7 @@ export const RevolutPayButton = ({
                 addToast({
                   title: 'Payment Successful',
                   description: 'Your payment has been processed successfully.',
-                  variant: 'success',
+                  variant: 'default',
                 });
                 if (onSuccess) onSuccess();
                 break;
@@ -94,7 +94,7 @@ export const RevolutPayButton = ({
                 addToast({
                   title: 'Payment Cancelled',
                   description: 'You have cancelled the payment.',
-                  variant: 'info',
+                  variant: 'default',
                 });
                 if (onCancel) onCancel();
                 break;
