@@ -9,6 +9,7 @@ interface InitialRating {
 interface DetailedFeedback {
   feedbackText: string;
   useCase?: string;
+  painPoint?: string;
   organization?: string;
   email?: string;
   canFeature?: boolean;
@@ -21,7 +22,9 @@ export async function saveInitialRating({ mapId, rating }: InitialRating) {
       map_id: mapId,
       satisfaction_rating: rating,
       community_type: 'other',
-      created_at: new Date().toISOString()
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      session_id: localStorage.getItem('session_id') // Get session ID if available
     }])
     .select()
     .single();
@@ -31,17 +34,20 @@ export async function saveInitialRating({ mapId, rating }: InitialRating) {
 }
 
 export async function updateWithDetailedFeedback(feedbackId: string, feedback: DetailedFeedback) {
+  // Prepare update data with all available fields
+  const updateData = {
+    testimonial: feedback.feedbackText || null,
+    use_case: feedback.useCase || feedback.painPoint || null, // Store pain point as use case for negative feedback
+    community_type: feedback.useCase || 'other',
+    organization_name: feedback.organization || null,
+    contact_email: feedback.email || null,
+    can_feature: feedback.canFeature || false,
+    updated_at: new Date().toISOString()
+  };
+
   const { data, error } = await supabase
     .from('map_feedback')
-    .update({
-      testimonial: feedback.feedbackText,
-      use_case: feedback.useCase,
-      community_type: feedback.useCase || 'other',
-      organization_name: feedback.organization,
-      contact_email: feedback.email,
-      can_feature: feedback.canFeature,
-      updated_at: new Date().toISOString()
-    })
+    .update(updateData)
     .eq('id', feedbackId)
     .select()
     .single();
@@ -57,7 +63,7 @@ export async function updateWithDetailedFeedback(feedbackId: string, feedback: D
         await trackLeadInteraction(feedback.email, 'provided_feedback', {
           feedback_id: feedbackId,
           rating: data.satisfaction_rating,
-          use_case: feedback.useCase
+          use_case: feedback.useCase || feedback.painPoint
         });
       }
     } catch (err) {

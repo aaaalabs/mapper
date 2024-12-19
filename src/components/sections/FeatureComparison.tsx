@@ -10,7 +10,7 @@ export function FeatureComparison() {
 
   const handleUploadClick = () => {
     trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
+      event_name: ANALYTICS_EVENTS.MAP_CREATION.STARTED,
       event_data: { source: 'feature_comparison' }
     });
     scrollToElement('quick-upload', 80);

@@ -113,7 +113,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
     
     try {
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.STARTED,
         event_data: { filename: file.name, fileSize: file.size }
       });
 
@@ -122,7 +122,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
         setUploadSuccess(true);
         
         await trackEvent({
-          event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
+          event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETED,
           event_data: { filename: file.name, fileSize: file.size }
         });
       }

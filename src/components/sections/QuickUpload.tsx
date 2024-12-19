@@ -129,7 +129,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       setError(null);
 
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.START,
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.STARTED,
         event_data: { file_size: file.size }
       });
 
@@ -166,7 +166,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       }
       
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETE,
+        event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETED,
         event_data: { members_count: parsedMembers.length }
       });
     } catch (error) {
@@ -213,7 +213,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
         
         await trackEvent({
           event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.STARTED,
-          event_data: { members_count: members.length }
+          event_data: { map_id: currentMapId, members_count: members.length }
         });
 
         // Generate and download HTML
@@ -227,7 +227,12 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
           style: {
             id: settings.style.id,
             markerStyle: settings.style.markerStyle || 'pins',
-            popupStyle: settings.style.popupStyle
+            popupStyle: {
+              background: settings.style.popupStyle.background,
+              text: settings.style.popupStyle.text,
+              border: settings.style.popupStyle.border,
+              shadow: settings.style.popupStyle.shadow
+            }
           },
           customization: {
             markerColor: settings.customization.markerColor,
@@ -243,16 +248,11 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
 
         // Track successful download
         if (currentMapId) {
-          await trackMapDownload(currentMapId);
+          await trackMapDownload(currentMapId, members.length);
         }
         
         setUploadStep('success');
         setShowFeedback(true);
-
-        await trackEvent({
-          event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
-          event_data: { map_id: currentMapId }
-        });
       } catch (error) {
         console.error('Error downloading map:', error);
         setError('Failed to download map. Please try again.');
@@ -268,7 +268,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
     try {
       await trackEvent({
         event_name: ANALYTICS_EVENTS.MAP_SHARING.INITIATED,
-        event_data: { map_id: currentMapId }
+        event_data: { map_id: currentMapId, members_count: members.length }
       });
       
       setShowShare(true);
@@ -498,11 +498,15 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
     if (uploadStep === 'preview' && members.length > 0 && center) {
       return (
         <div className="space-y-6">
-          <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
+          <div className="relative w-full aspect-[16/9] min-h-[300px] rounded-lg overflow-hidden">
+            {isLoading && (
+              <div className="absolute inset-0 bg-background-dark/50 flex items-center justify-center z-50">
+                <div className="text-white text-lg">Generating Map...</div>
+              </div>
+            )}
             <Map
               members={members}
-              center={center}
-              isLoading={isLoading}
+              center={center || [0, 0]}
               variant="preview"
               settings={mapSettings}
               onSettingsChange={setMapSettings}

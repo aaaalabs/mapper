@@ -97,11 +97,11 @@ async function trackMapAnalytics(mapId: string, members: CommunityMember[]) {
   }
 }
 
-export async function trackMapDownload(mapId: string) {
+export async function trackMapDownload(mapId: string, membersCount: number) {
   try {
     await trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETE,
-      event_data: { map_id: mapId },
+      event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
+      event_data: { map_id: mapId, members_count: membersCount },
       session_id: getSessionId()
     });
   } catch (error) {
@@ -112,7 +112,7 @@ export async function trackMapDownload(mapId: string) {
 export async function trackMapShare(mapId: string) {
   try {
     await trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_SHARING.COMPLETE,
+      event_name: ANALYTICS_EVENTS.MAP_SHARING.COMPLETED,
       event_data: { map_id: mapId },
       session_id: getSessionId()
     });

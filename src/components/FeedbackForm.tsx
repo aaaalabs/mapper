@@ -38,6 +38,14 @@ export function FeedbackForm({ mapId, onClose }: FeedbackFormProps) {
 
   const isPositiveRating = rating !== null && rating >= 4;
 
+  const handleRatingChange = async (newRating: number) => {
+    setRating(newRating);
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.FEEDBACK.RATING,
+      event_data: { rating: newRating, map_id: mapId, type: 'initial' }
+    });
+  };
+
   const handleSubmit = async () => {
     if (!rating) return;
     
@@ -56,15 +64,26 @@ export function FeedbackForm({ mapId, onClose }: FeedbackFormProps) {
       if (feedbackId) {
         await updateWithDetailedFeedback(feedbackId, {
           feedbackText: feedback,
-          useCase: isPositiveRating ? useCase : undefined,
+          useCase,
+          painPoint,
           organization: canFeature ? organization : undefined,
           email: canFeature ? email : undefined,
           canFeature: isPositiveRating && feedback ? canFeature : undefined
         });
 
         await trackEvent({
-          event_name: ANALYTICS_EVENTS.FEEDBACK.RATING,
-          event_data: { rating, map_id: mapId }
+          event_name: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
+          event_data: { 
+            feedback_id: feedbackId,
+            map_id: mapId,
+            rating,
+            has_text: !!feedback,
+            use_case: useCase || undefined,
+            pain_point: painPoint || undefined,
+            can_feature: isPositiveRating && feedback ? canFeature : undefined,
+            has_organization: !!organization,
+            has_email: !!email
+          }
         });
       }
 
@@ -74,8 +93,13 @@ export function FeedbackForm({ mapId, onClose }: FeedbackFormProps) {
       setError(err instanceof Error ? err.message : 'Failed to submit feedback. Please try again.');
       
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
-        event_data: { error: err instanceof Error ? err.message : 'Unknown error' }
+        event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
+        event_data: { 
+          error: err instanceof Error ? err.message : 'Unknown error',
+          context: 'feedback_submission',
+          map_id: mapId,
+          feedback_id: feedbackId
+        }
       });
     } finally {
       setIsSubmitting(false);
@@ -91,7 +115,7 @@ export function FeedbackForm({ mapId, onClose }: FeedbackFormProps) {
           {[1, 2, 3, 4, 5].map((value) => (
             <button
               key={value}
-              onClick={() => setRating(value)}
+              onClick={() => handleRatingChange(value)}
               onMouseEnter={() => setHoverRating(value)}
               onMouseLeave={() => setHoverRating(0)}
               className={cn(

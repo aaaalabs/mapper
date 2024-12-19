@@ -21,8 +21,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { DashboardContent } from './components/insights/DashboardContent';
 import { BetaWaitlist } from './components/admin/BetaWaitlist';
-import { UserManagement } from './components/admin/UserManagement';
-import { ContentModeration } from './components/admin/ContentModeration';
+import { Feedback } from './components/admin/Feedback';
 import { AdminSettings } from './components/insights/AdminSettings';
 import { useAuth } from './hooks/useAuth';
 import { XCircleIcon } from '@heroicons/react/24/outline';
@@ -124,8 +123,7 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/admin/analytics" replace /> },
       { path: 'analytics', element: <DashboardContent /> },
       { path: 'waitlist', element: <BetaWaitlist /> },
-      { path: 'users', element: <UserManagement /> },
-      { path: 'moderation', element: <ContentModeration /> },
+      { path: 'feedback', element: <Feedback /> },
       { path: 'settings', element: <AdminSettings currentUserId="" isLoading={false} /> }
     ]
   },

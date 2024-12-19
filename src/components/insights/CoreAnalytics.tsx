@@ -129,9 +129,32 @@ export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
     return <LoadingSkeleton />;
   }
 
-  const todayMetrics = metrics.daily_metrics[metrics.daily_metrics.length - 1];
-  const yesterdayMetrics = metrics.daily_metrics[metrics.daily_metrics.length - 2];
+  if (!metrics || !metrics.daily_metrics || metrics.daily_metrics.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500">No analytics data available for the selected date range.</p>
+      </div>
+    );
+  }
+
+  const sortedMetrics = [...metrics.daily_metrics].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  const todayMetrics = sortedMetrics[0] || {
+    active_users: 0,
+    maps_created: 0,
+    shares: 0,
+    success_rate: 0
+  };
   
+  const yesterdayMetrics = sortedMetrics[1] || {
+    active_users: 0,
+    maps_created: 0,
+    shares: 0,
+    success_rate: 0
+  };
+
   const calculateGrowth = (today: number, yesterday: number) => {
     if (!yesterday) return 0;
     const growth = ((today - yesterday) / yesterday) * 100;

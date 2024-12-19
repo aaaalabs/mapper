@@ -110,43 +110,81 @@ export function DashboardContent() {
         <div className="flex items-center space-x-4">
           <DatePicker
             selected={dateRange.startDate}
-            onChange={(dates) => {
-              const [start, end] = dates;
-              if (start && end) {
-                setDateRange({ startDate: start, endDate: end });
+            onChange={(date: Date | null, event: React.SyntheticEvent<any> | undefined) => {
+              if (date) {
+                setDateRange(prev => ({
+                  ...prev,
+                  startDate: date
+                }));
               }
             }}
-            startDate={dateRange.startDate}
-            endDate={dateRange.endDate}
-            selectsRange
-            className="px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+            maxDate={new Date()}
+            dateFormat="MMM d, yyyy"
+            placeholderText="Start date"
+            className="px-3 py-2 border rounded-md"
+          />
+          <span className="text-gray-500">to</span>
+          <DatePicker
+            selected={dateRange.endDate}
+            onChange={(date: Date | null, event: React.SyntheticEvent<any> | undefined) => {
+              if (date) {
+                setDateRange(prev => ({
+                  ...prev,
+                  endDate: date
+                }));
+              }
+            }}
+            minDate={dateRange.startDate}
+            maxDate={new Date()}
+            dateFormat="MMM d, yyyy"
+            placeholderText="End date"
+            className="px-3 py-2 border rounded-md"
           />
           <button
-            onClick={fetchData}
-            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={() => fetchData()}
+            className="inline-flex items-center space-x-2 px-3 py-2 border rounded-md hover:bg-gray-50"
             disabled={isRefreshing}
           >
-            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200 p-4 rounded-lg">
-          <p>{error}</p>
+      {error ? (
+        <div className="text-center py-8">
+          <p className="text-red-500">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              fetchData();
+            }}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            Try Again
+          </button>
         </div>
-      )}
-
-      {isLoading ? (
-        <div className="flex items-center justify-center h-96">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-600 dark:text-gray-400" />
-        </div>
-      ) : data?.coreMetrics ? (
-        <CoreAnalytics metrics={data.coreMetrics} isLoading={isLoading} />
       ) : (
-        <div className="flex items-center justify-center h-96">
-          <p className="text-gray-600 dark:text-gray-400">No data available for the selected date range</p>
-        </div>
+        <CoreAnalytics
+          metrics={data?.coreMetrics || {
+            total_maps: 0,
+            total_users: 0,
+            total_views: 0,
+            total_shares: 0,
+            conversion_rate: 0,
+            avg_session_duration: 0,
+            engagement_rate: 0,
+            conversion_trend: 0,
+            total_conversions: 0,
+            feature_usage: {},
+            daily_metrics: []
+          }}
+          isLoading={isLoading}
+        />
       )}
     </div>
   );
@@ -180,9 +218,10 @@ function calculateConversionRate(data: any[]) {
 
 function calculateAvgSessionDuration(data: any[]) {
   const sessions = data.filter(item => item.avg_session_duration);
-  return sessions.length > 0
+  const avgDuration = sessions.length > 0
     ? sessions.reduce((sum, item) => sum + item.avg_session_duration, 0) / sessions.length
     : 0;
+  return Math.round(avgDuration);
 }
 
 function calculateEngagementRate(data: any[]) {
@@ -258,7 +297,7 @@ function processDailyMetrics(data: any[]) {
     errors: metrics.errors,
     avg_load_time: metrics.load_time_count > 0 
       ? metrics.avg_load_time / metrics.load_time_count 
-      : null
+      : undefined
   }));
 }
 

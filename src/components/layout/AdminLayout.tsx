@@ -5,6 +5,7 @@ import {
   ChartBarIcon,
   UsersIcon,
   Cog6ToothIcon as SettingsIcon,
+  ChatBubbleLeftRightIcon as FeedbackIcon,
   ShieldCheckIcon as ShieldIcon,
   FlagIcon,
   ArrowLeftOnRectangleIcon as LogoutIcon
@@ -15,8 +16,7 @@ import { Logo } from '@/components/ui/Logo';
 const navigation = [
   { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
   { name: 'Beta Waitlist', href: '/admin/waitlist', icon: UsersIcon },
-  { name: 'User Management', href: '/admin/users', icon: ShieldIcon },
-  { name: 'Content Moderation', href: '/admin/moderation', icon: FlagIcon },
+  { name: 'Feedback', href: '/admin/feedback', icon: FeedbackIcon },
   { name: 'Settings', href: '/admin/settings', icon: SettingsIcon },
 ];
 

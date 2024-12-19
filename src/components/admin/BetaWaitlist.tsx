@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface WaitlistEntry {
   id: string;
@@ -8,6 +9,7 @@ interface WaitlistEntry {
   created_at: string;
   status: 'pending' | 'approved' | 'rejected';
   notes?: string;
+  lead_type: string;
 }
 
 export function BetaWaitlist() {
@@ -23,8 +25,9 @@ export function BetaWaitlist() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('map_waitlist')
+        .from('map_leads')
         .select('*')
+        .eq('lead_type', 'beta_waitlist')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -39,9 +42,10 @@ export function BetaWaitlist() {
   const updateStatus = async (id: string, status: WaitlistEntry['status']) => {
     try {
       const { error } = await supabase
-        .from('map_waitlist')
+        .from('map_leads')
         .update({ status })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('lead_type', 'beta_waitlist');
 
       if (error) throw error;
       await fetchWaitlist();

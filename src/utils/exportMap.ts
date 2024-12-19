@@ -5,7 +5,11 @@ export interface MapOptions {
   enableClustering?: boolean;
   enableFullscreen?: boolean;
   enableSharing?: boolean;
+  enableSearch?: boolean;
+  title?: string;
+  zoom?: number;
   style?: {
+    id?: string;
     popupStyle?: {
       background?: string;
       text?: string;
