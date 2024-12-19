@@ -27,6 +27,17 @@ export function OrderPage() {
 
   const handleContinueToBooking = () => {
     const bookingUrl = `https://voiceloop.fillout.com/t/rfGJsPbos6us?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&skool=${encodeURIComponent(skoolUid)}`;
+    
+    // Track booking started
+    trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.BOOKING_STARTED,
+      event_data: {
+        service: 'data_extraction',
+        email,
+        skool_uid: skoolUid
+      }
+    });
+    
     window.location.href = bookingUrl;
   };
 

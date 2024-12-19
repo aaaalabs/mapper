@@ -90,8 +90,9 @@ export function ShareModal({ isOpen, onClose, mapId, initialMapName }: ShareModa
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       
-      trackEvent(ANALYTICS_EVENTS.SHARE_LINK_COPIED, {
-        map_id: mapId
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_INTERACTION.SHARE,
+        event_data: { map_id: mapId, action: 'copy_link' }
       });
     } catch (err) {
       console.error('Failed to copy share link:', err);
@@ -103,9 +104,10 @@ export function ShareModal({ isOpen, onClose, mapId, initialMapName }: ShareModa
       await navigator.clipboard.writeText(embedCode);
       setEmbedCopied(true);
       setTimeout(() => setEmbedCopied(false), 2000);
-      
-      trackEvent(ANALYTICS_EVENTS.EMBED_CODE_COPIED, {
-        map_id: mapId
+
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP_INTERACTION.SHARE,
+        event_data: { map_id: mapId, action: 'copy_embed' }
       });
     } catch (err) {
       console.error('Failed to copy embed code:', err);

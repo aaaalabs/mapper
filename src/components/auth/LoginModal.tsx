@@ -61,22 +61,22 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose}>
-      <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+      <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
         >
           <X size={20} />
         </button>
 
-        <h3 className="text-xl font-semibold mb-4">Beta Access Login</h3>
-        <p className="text-sm text-gray-500 mb-6">
+        <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Beta Access Login</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Enter your credentials to access beta features
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email
             </label>
             <Input
@@ -85,12 +85,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full"
+              className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:ring-primary"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Password
             </label>
             <Input
@@ -99,7 +99,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full"
+              className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:ring-primary"
             />
           </div>
 
@@ -107,7 +107,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             <button
               type="button"
               onClick={handleRequestAccess}
-              className="text-primary hover:text-primary-dark"
+              className="text-primary hover:text-primary-dark dark:hover:text-primary-light"
             >
               Request access
             </button>

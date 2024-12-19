@@ -23,9 +23,10 @@ export function SupportSection() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    communityLink: 'https://skool.com/MYCOMMUNITY'
+    communityLink: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [linkError, setLinkError] = useState('');
 
   useEffect(() => {
     const loadScript = async () => {
@@ -75,14 +76,44 @@ export function SupportSection() {
            formData.communityLink.trim() !== '';
   };
 
+  const validateCommunityLink = (link: string) => {
+    if (!link) {
+      setLinkError('Please enter your Skool community link');
+      return false;
+    }
+    
+    const skoolRegex = /^https:\/\/skool\.com\/[a-zA-Z0-9-_]+$/;
+    if (!skoolRegex.test(link)) {
+      setLinkError('Please enter a valid Skool community link (e.g., https://skool.com/community-name)');
+      return false;
+    }
+    
+    setLinkError('');
+    return true;
+  };
+
   const handleScheduleDemo = () => {
+    // Track demo button click
+    trackEvent({
+      event_name: ANALYTICS_EVENTS.FEATURE.USED,
+      event_data: {
+        feature: 'demo_call',
+        action: 'schedule_clicked'
+      }
+    });
+    
     window.open('https://voiceloop.fillout.com/Demo', '_blank');
   };
 
   const handleExtractionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setError(null);
+    setIsSubmitting(true);
+
+    if (!validateCommunityLink(formData.communityLink)) {
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       await trackEvent({
@@ -179,44 +210,48 @@ export function SupportSection() {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
   return (
-    <div className="rounded-xl p-8 text-center mb-16 bg-[#F2E2CE] border border-[#E9B893]/30 shadow-lg hover:shadow-xl transition-all duration-300">
+    <div className="rounded-xl p-8 text-center mb-16 bg-[#F2E2CE] dark:bg-gray-800 border border-[#E9B893]/30 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300">
       <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl font-bold mb-3 text-[#1D3640] bg-clip-text">
+        <h2 className="text-2xl font-bold mb-3 text-[#1D3640] dark:text-white bg-clip-text">
           Looking for a Shortcut?
         </h2>
-        <p className="mb-8 text-[#3D4F4F] text-lg">
+        <p className="mb-8 text-[#3D4F4F] dark:text-gray-300 text-lg">
           Skip the learning curve. Let our experts handle the technical setup for you.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch">
           <Button 
             variant="outline"
             onClick={handleScheduleDemo}
-            className="group relative w-full sm:w-[280px] h-[160px] bg-white border-2 border-[#E9B893] hover:border-[#F99D7C] hover:bg-[#F3EDE5] transition-all duration-300"
+            className="group relative w-full sm:w-[280px] h-[160px] bg-white dark:bg-gray-800 border-2 border-[#E9B893] dark:border-gray-700 hover:border-[#F99D7C] dark:hover:border-[#F99D7C] hover:bg-[#F3EDE5] dark:hover:bg-gray-700 transition-all duration-300"
           >
-            <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-white px-3 text-xs text-[#F99D7C] font-medium">
+            <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-3 text-xs text-[#F99D7C] font-medium">
               Free
             </span>
             <div className="flex flex-col items-center justify-center h-full">
-              <span className="font-semibold text-[#1D3640] text-lg">Schedule Demo Call</span>
-              <span className="text-sm text-[#3D4F4F] mt-2 group-hover:text-[#F99D7C] transition-colors">
+              <span className="font-semibold text-[#1D3640] dark:text-white text-lg">Schedule Demo Call</span>
+              <span className="text-sm text-[#3D4F4F] dark:text-gray-400 mt-2 group-hover:text-[#F99D7C] transition-colors">
                 Get personalized guidance
               </span>
             </div>
           </Button>
-          <div className="hidden sm:flex items-center text-[#A3A692]">or</div>
+          <div className="hidden sm:flex items-center text-[#A3A692] dark:text-gray-500">or</div>
           <Button 
             variant="outline"
             onClick={() => setShowExtractionForm(true)}
-            className="group relative w-full sm:w-[280px] h-[160px] bg-white border-2 border-[#F99D7C] hover:border-[#1D3640] hover:bg-[#F3EDE5] transition-all duration-300"
+            className="group relative w-full sm:w-[280px] h-[160px] bg-white dark:bg-gray-800 border-2 border-[#F99D7C] hover:border-[#1D3640] dark:hover:border-white hover:bg-[#F3EDE5] dark:hover:bg-gray-700 transition-all duration-300"
           >
-            <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-white px-3 text-xs text-[#1D3640] font-medium">
+            <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-3 text-xs text-[#1D3640] dark:text-white font-medium">
               Premium
             </span>
             <div className="flex flex-col items-center justify-center h-full">
-              <span className="font-semibold text-[#1D3640] text-lg">Book Data Extraction</span>
+              <span className="font-semibold text-[#1D3640] dark:text-white text-lg">Book Data Extraction</span>
               <span className="font-medium text-[#F99D7C] mt-2 text-lg">€9.90</span>
-              <span className="text-sm text-[#3D4F4F] mt-2 group-hover:text-[#1D3640] transition-colors">
+              <span className="text-sm text-[#3D4F4F] dark:text-gray-400 mt-2 group-hover:text-[#1D3640] dark:group-hover:text-white transition-colors">
                 Let us do it for you
               </span>
             </div>
@@ -224,8 +259,8 @@ export function SupportSection() {
         </div>
         
         <div className="mt-8 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#F2E2CE] via-transparent to-[#F2E2CE] z-10"></div>
-          <p className="relative z-20 text-sm text-[#A3A692] max-w-md mx-auto italic">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#F2E2CE] via-transparent to-[#F2E2CE] dark:from-gray-800 dark:to-gray-800 z-10"></div>
+          <p className="relative z-20 text-sm text-[#A3A692] dark:text-gray-500 max-w-md mx-auto italic">
             "Join the smart ones who saved hours of setup time"
           </p>
         </div>
@@ -236,56 +271,73 @@ export function SupportSection() {
         <OverlayContent
           title="Book Data Extraction"
           description={
-            <div className="space-y-2 text-[#3D4F4F]">
+            <div className="space-y-2 text-[#3D4F4F] dark:text-gray-300">
               <p>
                 To create your community map, we'll collect location data from your Skool members' LinkedIn profiles.
               </p>
-              <p className="text-sm text-[#A3A692] italic">
+              <p className="text-sm text-[#A3A692] dark:text-gray-500 italic">
                 Note: Only members with LinkedIn profiles and shared locations will appear on the map.
               </p>
             </div>
           }
         >
           <form onSubmit={handleExtractionSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Skool Community Link
-              </label>
-              <input
-                type="url"
-                required
-                value={formData.communityLink}
-                onChange={(e) => setFormData(prev => ({ ...prev, communityLink: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                placeholder="https://www.skool.com/your-community"
-              />
+            <div className="space-y-4 mb-6">
+              <div>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Your Name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                    bg-white dark:bg-gray-800 
+                    text-gray-900 dark:text-white 
+                    focus:outline-none focus:ring-2 focus:ring-[#F99D7C] focus:border-transparent
+                    placeholder-gray-400 dark:placeholder-gray-500"
+                  required
+                />
+              </div>
+              <div>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Your Email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                    bg-white dark:bg-gray-800 
+                    text-gray-900 dark:text-white 
+                    focus:outline-none focus:ring-2 focus:ring-[#F99D7C] focus:border-transparent
+                    placeholder-gray-400 dark:placeholder-gray-500"
+                  required
+                />
+              </div>
+              <div>
+                <input
+                  type="url"
+                  name="communityLink"
+                  placeholder="Your Skool Community Link"
+                  value={formData.communityLink}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F99D7C] focus:border-transparent
+                    bg-white dark:bg-gray-800 
+                    text-gray-900 dark:text-white 
+                    placeholder-gray-400 dark:placeholder-gray-500
+                    ${linkError 
+                      ? "border-red-500 dark:border-red-400" 
+                      : "border-gray-300 dark:border-gray-600"}`}
+                  required
+                />
+                {linkError && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {linkError}
+                  </p>
+                )}
+              </div>
             </div>
             {error && (
-              <div className="text-red-500 text-sm mt-2">
+              <div className="text-red-600 dark:text-red-400 text-sm mt-2">
                 {error}
               </div>
             )}

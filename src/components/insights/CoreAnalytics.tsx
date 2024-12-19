@@ -2,7 +2,22 @@ import React from 'react';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { format, subDays } from 'date-fns';
-import { ArrowTrendingUpIcon as TrendingUpIcon, ArrowTrendingDownIcon as TrendingDownIcon, MapIcon, UsersIcon } from '@heroicons/react/24/solid';
+import { ArrowTrendingUpIcon as TrendingUpIcon, ArrowTrendingDownIcon as TrendingDownIcon, MapIcon, UsersIcon, ClockIcon, ChartBarIcon } from '@heroicons/react/24/solid';
+import { useTheme } from '../../contexts/ThemeContext';
+import { lightTheme, darkTheme } from '../ui/themes/chartThemes';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import { cn } from '@/lib/utils';
 
 interface CoreMetrics {
   total_maps: number;
@@ -41,36 +56,69 @@ interface MetricCardProps {
   subtitle?: string;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, trend, icon: Icon, subtitle }) => (
-  <div className="p-6 bg-white rounded-lg shadow-sm">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center space-x-4">
-        <div className="p-2 bg-blue-100 rounded-lg">
-          <Icon className="w-6 h-6 text-blue-600" />
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, trend, icon: Icon, subtitle }) => {
+  const trendValue = trend ? Math.round(trend * 10) / 10 : null; // Round to 1 decimal place
+  const isPositive = trendValue && trendValue > 0;
+  const isNegative = trendValue && trendValue < 0;
+
+  return (
+    <div className="p-6 bg-background-white dark:bg-background rounded-lg shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="p-2 bg-accent/10 dark:bg-accent/20 rounded-lg">
+            <Icon className="h-5 w-5 text-accent" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+            <div className="flex items-baseline space-x-2">
+              <p className="text-2xl font-semibold text-primary">{value}</p>
+              {subtitle && (
+                <span className="text-sm text-muted-foreground">{subtitle}</span>
+              )}
+            </div>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <h3 className="text-2xl font-bold">{value}</h3>
-          {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
-          )}
-        </div>
+        {trendValue !== null && (
+          <div className={cn(
+            "flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium",
+            isPositive && "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300",
+            isNegative && "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300",
+            !isPositive && !isNegative && "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300"
+          )}>
+            <span className="sr-only">
+              {isPositive ? 'Increased by' : 'Decreased by'}
+            </span>
+            {isPositive ? (
+              <TrendingUpIcon className="h-3 w-3 mr-1" />
+            ) : (
+              <TrendingDownIcon className="h-3 w-3 mr-1" />
+            )}
+            {Math.abs(trendValue)}%
+          </div>
+        )}
       </div>
-      {trend !== undefined && (
-        <div className={`flex items-center ${trend >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-          {trend >= 0 ? <TrendingUpIcon className="w-4 h-4 mr-1" /> : <TrendingDownIcon className="w-4 h-4 mr-1" />}
-          <span className="text-sm font-medium">
-            {trend > 0 ? '+' : ''}{trend}%
-          </span>
-        </div>
-      )}
     </div>
-  </div>
-);
+  );
+};
 
 export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
-  const formatNumber = (value: number) => value.toLocaleString();
-  const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+  const isDark = document.documentElement.classList.contains('dark');
+  const chartTheme = isDark ? darkTheme : lightTheme;
+  const formatNumber = (value: number) => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    }
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`;
+    }
+    return value.toLocaleString();
+  };
+
+  const formatPercent = (value: number) => {
+    const rounded = Math.round(value * 10) / 10;
+    return `${rounded}%`;
+  };
+
   const formatDuration = (minutes: number) => {
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -85,8 +133,23 @@ export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
   const yesterdayMetrics = metrics.daily_metrics[metrics.daily_metrics.length - 2];
   
   const calculateGrowth = (today: number, yesterday: number) => {
-    return yesterday ? ((today - yesterday) / yesterday) * 100 : 0;
+    if (!yesterday) return 0;
+    const growth = ((today - yesterday) / yesterday) * 100;
+    return Math.round(growth * 10) / 10; // Round to 1 decimal place
   };
+
+  const eventSummaryData = metrics.daily_metrics.map(d => ({
+    date: format(new Date(d.date), 'MMM d'),
+    "Total Events": d.maps_created + d.shares,
+    "Unique Sessions": d.active_users
+  }));
+
+  const featureUsageData = [
+    { feature: "Map Creation", value: metrics.feature_usage.map_creation },
+    { feature: "Sharing", value: metrics.feature_usage.sharing },
+    { feature: "Editing", value: metrics.feature_usage.editing },
+    { feature: "Exporting", value: metrics.feature_usage.exporting }
+  ];
 
   return (
     <div className="space-y-6">
@@ -108,97 +171,119 @@ export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
         <MetricCard
           title="Avg Session Time"
           value={formatDuration(metrics.avg_session_duration)}
-          icon={UsersIcon}
+          icon={ClockIcon}
         />
         <MetricCard
           title="Conversion Rate"
           value={formatPercent(metrics.conversion_rate)}
           trend={metrics.conversion_trend}
-          icon={TrendingUpIcon}
+          icon={ChartBarIcon}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Event Summary</h3>
+        <div className="bg-background-white dark:bg-background p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-primary">Event Summary</h3>
           <div className="h-80">
-            <ResponsiveLine
-              data={[
-                {
-                  id: "Total Events",
-                  data: metrics.daily_metrics.map(d => ({
-                    x: d.date,
-                    y: d.maps_created + d.shares
-                  }))
-                },
-                {
-                  id: "Unique Sessions",
-                  data: metrics.daily_metrics.map(d => ({
-                    x: d.date,
-                    y: d.active_users
-                  }))
-                }
-              ]}
-              margin={{ top: 20, right: 20, bottom: 50, left: 50 }}
-              xScale={{ type: 'time', format: '%Y-%m-%d' }}
-              yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
-              axisBottom={{
-                format: '%b %d',
-                tickRotation: -45
-              }}
-              enablePoints={false}
-              useMesh={true}
-              enableSlices="x"
-              curve="monotoneX"
-              colors={['#6366f1', '#22c55e']}
-            />
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={eventSummaryData}>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="currentColor" 
+                  className="opacity-10"
+                />
+                <XAxis 
+                  dataKey="date"
+                  tick={{ fontSize: 12 }}
+                  stroke="currentColor"
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  stroke="currentColor"
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'var(--background)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)'
+                  }}
+                  itemStyle={{
+                    color: 'var(--foreground)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{
+                    color: 'var(--foreground)'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="Total Events" 
+                  stroke="#6366f1" 
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="Unique Sessions" 
+                  stroke="#22c55e" 
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Feature Usage</h3>
+        <div className="bg-background-white dark:bg-background p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-primary">Feature Usage</h3>
           <div className="h-80">
-            <ResponsiveBar
-              data={[
-                {
-                  feature: "Map Creation",
-                  value: metrics.feature_usage.map_creation
-                },
-                {
-                  feature: "Sharing",
-                  value: metrics.feature_usage.sharing
-                },
-                {
-                  feature: "Editing",
-                  value: metrics.feature_usage.editing
-                },
-                {
-                  feature: "Exporting",
-                  value: metrics.feature_usage.exporting
-                }
-              ]}
-              keys={['value']}
-              indexBy="feature"
-              margin={{ top: 20, right: 20, bottom: 50, left: 100 }}
-              padding={0.3}
-              colors={['#6366f1']}
-              borderRadius={4}
-              axisLeft={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-              }}
-              axisBottom={{
-                tickRotation: -45
-              }}
-            />
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={featureUsageData}>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="currentColor" 
+                  className="opacity-10"
+                />
+                <XAxis 
+                  dataKey="feature"
+                  tick={{ fontSize: 12 }}
+                  stroke="currentColor"
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  stroke="currentColor"
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'var(--background)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)'
+                  }}
+                  itemStyle={{
+                    color: 'var(--foreground)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{
+                    color: 'var(--foreground)'
+                  }}
+                />
+                <Bar 
+                  dataKey="value" 
+                  fill="currentColor" 
+                  className="text-accent"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Error Analysis</h3>
+        <div className="bg-background-white dark:bg-background p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-primary">Error Analysis</h3>
           <div className="h-80">
             <ResponsiveLine
               data={[
@@ -217,6 +302,7 @@ export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
                 format: '%b %d',
                 tickRotation: -45
               }}
+              theme={chartTheme}
               enablePoints={true}
               pointSize={8}
               pointColor="#ffffff"
@@ -228,8 +314,8 @@ export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
+        <div className="bg-background-white dark:bg-background p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-primary">Performance Metrics</h3>
           <div className="h-80">
             <ResponsiveLine
               data={[
@@ -248,6 +334,7 @@ export function CoreAnalytics({ metrics, isLoading }: CoreAnalyticsProps) {
                 format: '%b %d',
                 tickRotation: -45
               }}
+              theme={chartTheme}
               enablePoints={false}
               enableSlices="x"
               curve="monotoneX"
@@ -268,7 +355,7 @@ const LoadingSkeleton = () => (
     </div>
     <div className="grid grid-cols-2 gap-6">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="bg-white rounded-lg shadow-sm p-6">
+        <div key={i} className="bg-background-white dark:bg-background rounded-lg shadow-sm p-6">
           <div className="h-8 bg-gray-200 rounded w-48 mb-4" />
           <div className="h-64 bg-gray-200 rounded" />
         </div>

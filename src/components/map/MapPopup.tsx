@@ -43,8 +43,10 @@ export const MapPopup: React.FC<MapPopupProps> = ({
       event_data: {
         map_id: mapId,
         link_type: linkType,
+        link_url: link,
         member_name: member.name,
-        member_location: member.location
+        member_location: member.location,
+        timestamp: new Date().toISOString()
       }
     });
   };

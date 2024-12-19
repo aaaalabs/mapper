@@ -12,6 +12,9 @@
     --color-background-white: #FFFFFF;
     --color-accent: #E9B893;
     --color-accent-alt: #F99D7C;
+    --background: #ffffff;
+    --foreground: #111827;
+    --border: #e5e7eb;
   }
 
   .dark {
@@ -23,6 +26,23 @@
     --color-background-white: #3D4F4F;
     --color-accent: #E9B893;
     --color-accent-alt: #F99D7C;
+    --background: #1f2937;
+    --foreground: #f3f4f6;
+    --border: #374151;
+  }
+
+  .dark {
+    --color-background: #1f2937;
+    --color-foreground: #f3f4f6;
+    --color-border: #374151;
+    --color-text-primary: #f9fafb;
+    --color-text-secondary: #d1d5db;
+    --color-background-white: #111827;
+    --color-accent: #E9B893;
+    --color-accent-alt: #F99D7C;
+    --background: #1f2937;
+    --foreground: #f3f4f6;
+    --border: #374151;
   }
 
   html {
@@ -193,5 +213,61 @@
   .react-datepicker__input-container input {
     @apply px-3 py-2 border rounded-md text-sm;
     min-width: 200px;
+  }
+
+  /* DatePicker Dark Mode Styles */
+  .dark .react-datepicker {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
+  .dark .react-datepicker__header {
+    background-color: #111827;
+    border-bottom-color: #374151;
+  }
+
+  .dark .react-datepicker__current-month,
+  .dark .react-datepicker__day-name,
+  .dark .react-datepicker__day {
+    color: #e5e7eb;
+  }
+
+  .dark .react-datepicker__day:hover {
+    background-color: #374151;
+  }
+
+  .dark .react-datepicker__day--selected,
+  .dark .react-datepicker__day--in-range {
+    background-color: #3b82f6;
+    color: white;
+  }
+
+  .dark .react-datepicker__day--disabled {
+    color: #6b7280;
+  }
+
+  /* Chart theme overrides for dark mode */
+  .dark .recharts-cartesian-grid-horizontal line,
+  .dark .recharts-cartesian-grid-vertical line {
+    stroke: #374151;
+    opacity: 0.2;
+  }
+
+  .dark .recharts-text {
+    fill: #d1d5db !important;
+  }
+
+  .dark .recharts-tooltip-wrapper {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+  }
+
+  .dark .recharts-default-tooltip {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+  }
+
+  .dark .recharts-tooltip-item {
+    color: #f3f4f6 !important;
   }
 }

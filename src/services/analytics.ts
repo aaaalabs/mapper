@@ -31,6 +31,7 @@ export const ANALYTICS_EVENTS = {
     ZOOM: 'map_zoomed',
     PAN: 'map_panned',
     MARKER_CLICK: 'marker_clicked',
+    PROFILE_LINK_CLICK: 'profile_link_clicked',
     SETTINGS_UPDATED: 'map_settings_updated'
   },
   USER_ACTION: {
@@ -102,22 +103,34 @@ export const trackEvent = async ({
   timestamp = new Date().toISOString()
 }: AnalyticsEvent): Promise<boolean> => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('map_analytics_events')
       .insert({
         event_name,
         session_id,
         event_data: JSON.stringify(event_data),
         timestamp
-      });
+      })
+      .select();
 
     if (error) {
       console.error('Analytics error:', error.message);
+      return false;
     }
+
+    console.log('Analytics event tracked:', {
+      event_name,
+      event_data,
+      session_id,
+      timestamp,
+      response: data
+    });
+
+    return true;
   } catch (error) {
     console.error('Failed to track event:', error);
+    return false;
   }
-  return true;
 };
 
 // Helper function to track map interactions

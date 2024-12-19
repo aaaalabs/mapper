@@ -1,40 +1,40 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../config/supabase';
-import { Button } from '../ui/Button';
-import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { XCircleIcon } from '@heroicons/react/24/outline';
+
+const ADMIN_EMAIL = 'admin@libralab.ai';
 
 export function AdminLogin() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
+      if (email !== ADMIN_EMAIL) {
+        throw new Error('Invalid admin credentials');
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-
-      if (data?.user?.email === 'admin@libralab.ai') {
-        // Set admin session
-        sessionStorage.setItem('is_admin', 'true');
-        navigate('/insights');
-      } else {
-        setError('Unauthorized access');
-        await supabase.auth.signOut();
+      if (data.user?.email !== ADMIN_EMAIL) {
+        throw new Error('Invalid admin credentials');
       }
+
+      navigate('/insights');
     } catch (err) {
-      console.error('Login error:', err);
-      setError('Invalid credentials');
+      setError(err instanceof Error ? err.message : 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -47,12 +47,26 @@ export function AdminLogin() {
           onClick={() => navigate('/')}
           className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
         >
-          <X size={20} />
+          <XCircleIcon className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <h2 className="text-2xl font-semibold mb-6">Admin Access</h2>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <XCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    {error}
+                  </h3>
+                </div>
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -78,10 +92,6 @@ export function AdminLogin() {
               required
             />
           </div>
-
-          {error && (
-            <div className="text-red-500 text-sm">{error}</div>
-          )}
 
           <Button
             type="submit"

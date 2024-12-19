@@ -106,6 +106,8 @@ mapper/
 [903] Use consistent UI styles across the application
 [904] Use proper accessibility features for all components
 [905] Follow mobile-first approach for all component designs
+[906] Make sure that there is always a working dark mode variant with contrasting colors of the UI
+
 
 # Documentation Guidelines
 [1001] Document all non-obvious code with inline comments

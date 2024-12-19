@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Overlay } from '../ui/Overlay';
-import { OverlayContent } from '../ui/OverlayContent';
-import { OverlayFooter } from '../ui/OverlayFooter';
 import { Button } from '../ui/Button';
 import { createLead } from '../../services/leadService';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
@@ -9,9 +7,10 @@ import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 interface BetaWaitlistModalProps {
   isOpen: boolean;
   onClose: () => void;
+  source?: string; // Track where the modal was opened from
 }
 
-export function BetaWaitlistModal({ isOpen, onClose }: BetaWaitlistModalProps) {
+export function BetaWaitlistModal({ isOpen, onClose, source = 'default' }: BetaWaitlistModalProps) {
   const [formData, setFormData] = useState({
     firstName: '',
     email: '',
@@ -19,21 +18,40 @@ export function BetaWaitlistModal({ isOpen, onClose }: BetaWaitlistModalProps) {
   });
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [linkError, setLinkError] = useState('');
+
+  const validateCommunityLink = (link: string): boolean => {
+    if (!link) {
+      return false;
+    }
+    
+    const skoolRegex = /^https:\/\/skool\.com\/[a-zA-Z0-9-_]+$/;
+    return skoolRegex.test(link);
+  };
 
   const isFormValid = () => {
     return formData.firstName.trim() !== '' && 
            formData.email.trim() !== '' && 
-           formData.communityLink.trim() !== '';
+           validateCommunityLink(formData.communityLink);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateCommunityLink(formData.communityLink)) {
+      setLinkError('Please enter a valid Skool community link (e.g., https://skool.com/community-name)');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
       await trackEvent({
         event_name: 'beta_signup',
-        event_data: { ...formData }
+        event_data: { 
+          ...formData,
+          source // Track where the signup came from
+        }
       });
 
       await createLead({
@@ -52,88 +70,112 @@ export function BetaWaitlistModal({ isOpen, onClose }: BetaWaitlistModalProps) {
     }
   };
 
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ firstName: '', email: '', communityLink: '' });
+      setShowSuccess(false);
+      setLinkError('');
+    }
+  }, [isOpen]);
+
   return (
     <Overlay isOpen={isOpen} onClose={onClose}>
-      <OverlayContent>
-        <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4">
-            {showSuccess ? "Thank You!" : "Join Beta Waitlist"}
-          </h2>
-          {showSuccess ? (
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-lg mb-4">
-                We've added you to our waitlist! We'll be in touch soon with next steps.
-              </p>
-              <Button onClick={onClose}>Close</Button>
+      <div className="p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          Join Beta Waitlist
+        </h2>
+
+        {showSuccess ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-500 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="communityLink" className="block text-sm font-medium text-gray-700">
-                    Skool Community Link
-                  </label>
-                  <input
-                    type="url"
-                    id="communityLink"
-                    value={formData.communityLink}
-                    onChange={(e) => setFormData(prev => ({ ...prev, communityLink: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="https://skool.com/your-community"
-                    required
-                  />
-                </div>
+            <p className="text-lg mb-4 text-gray-700 dark:text-gray-200">
+              We've added you to our waitlist! We'll be in touch soon with next steps.
+            </p>
+            <Button onClick={onClose} variant="secondary">Close</Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-4">
+            <div className="space-y-6">
+              <div>
+                <input
+                  type="text"
+                  id="firstName"
+                  placeholder="Your Name"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 
+                    bg-white dark:bg-gray-800 
+                    text-gray-900 dark:text-white 
+                    focus:outline-none focus:ring-2 focus:ring-[#F99D7C] focus:border-transparent
+                    placeholder-gray-400 dark:placeholder-gray-500"
+                  required
+                />
               </div>
-              <OverlayFooter>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={!isFormValid() || isSubmitting}
-                >
-                  {isSubmitting ? 'Joining...' : 'Join Waitlist'}
-                </Button>
-              </OverlayFooter>
-            </form>
-          )}
-        </div>
-      </OverlayContent>
+              <div>
+                <input
+                  type="email"
+                  id="email"
+                  placeholder="Your Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 
+                    bg-white dark:bg-gray-800 
+                    text-gray-900 dark:text-white 
+                    focus:outline-none focus:ring-2 focus:ring-[#F99D7C] focus:border-transparent
+                    placeholder-gray-400 dark:placeholder-gray-500"
+                  required
+                />
+              </div>
+              <div>
+                <input
+                  type="url"
+                  id="communityLink"
+                  placeholder="Your Skool Community Link"
+                  value={formData.communityLink}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setFormData(prev => ({ ...prev, communityLink: newValue }));
+                    // Clear error when user starts typing
+                    if (linkError) {
+                      setLinkError('');
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F99D7C] focus:border-transparent
+                    bg-white dark:bg-gray-800 
+                    text-gray-900 dark:text-white 
+                    placeholder-gray-400 dark:placeholder-gray-500
+                    ${linkError 
+                      ? "border-red-500 dark:border-red-400" 
+                      : "border-gray-200 dark:border-gray-700"}`}
+                  required
+                />
+                {linkError && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {linkError}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!isFormValid() || isSubmitting}
+                className={!isFormValid() || isSubmitting ? "opacity-50" : ""}
+              >
+                Join Waitlist
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
     </Overlay>
   );
 }

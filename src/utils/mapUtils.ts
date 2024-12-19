@@ -7,6 +7,10 @@ export async function parseCsvFile(file: File): Promise<CommunityMember[]> {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (header: string) => {
+        // Remove quotes and trim whitespace
+        return header.replace(/^["']|["']$/g, '').trim().toLowerCase();
+      },
       complete: async (results) => {
         try {
           const members = results.data.map((data: any) => {

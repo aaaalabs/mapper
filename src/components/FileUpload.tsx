@@ -67,7 +67,10 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
         return false;
       }
 
-      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const headers = lines[0]
+        .toLowerCase()
+        .split(',')
+        .map(h => h.trim().replace(/^["']|["']$/g, '')); // Remove quotes and trim whitespace
       console.log('CSV headers:', headers);
       
       const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
