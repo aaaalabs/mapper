@@ -1,43 +1,92 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../config/supabase';
+import { ADMIN_EMAIL, isAdminUser, AUTH_ERRORS } from '../config/auth';
 
-const ADMIN_EMAIL = 'admin@libralab.ai';
-
+/**
+ * Authentication hook for Mapper
+ * 
+ * IMPORTANT: This hook only checks for admin@libralab.ai.
+ * There are no roles, permissions, or other authenticated users.
+ * All other users are treated as anonymous leads.
+ */
 export function useAuth() {
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkAdminStatus();
-  }, []);
 
   const checkAdminStatus = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setIsAdmin(false);
-        return;
-      }
-
-      // Simply check if the user's email matches the admin email
-      setIsAdmin(session.user.email === ADMIN_EMAIL);
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(isAdminUser(user?.email));
     } catch (error) {
       console.error('Error checking admin status:', error);
       setIsAdmin(false);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    if (email !== ADMIN_EMAIL) {
+      throw new Error(AUTH_ERRORS.INVALID_CREDENTIALS);
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
+    setIsAuthenticated(false);
     setIsAdmin(false);
-    window.location.href = '/';
   };
 
-  return {
-    isAdmin,
-    loading,
-    signOut
-  };
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const isUserAuthenticated = !!user;
+        setIsAuthenticated(isUserAuthenticated);
+        
+        if (isUserAuthenticated) {
+          await checkAdminStatus();
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const isUserAuthenticated = !!session;
+      setIsAuthenticated(isUserAuthenticated);
+      
+      if (isUserAuthenticated) {
+        await checkAdminStatus();
+      } else {
+        setIsAdmin(false);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return { isAuthenticated, isAdmin, loading, signIn, signOut };
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   createBrowserRouter,
   RouterProvider,
@@ -23,12 +23,33 @@ import { DashboardContent } from './components/insights/DashboardContent';
 import { BetaWaitlist } from './components/admin/BetaWaitlist';
 import { Feedback } from './components/admin/Feedback';
 import { AdminSettings } from './components/insights/AdminSettings';
+import { Logs } from './components/admin/Logs';
 import { useAuth } from './hooks/useAuth';
 import { XCircleIcon } from '@heroicons/react/24/outline';
+import { trackErrorWithContext, ErrorSeverity } from './services/errorTracking';
+import { usePerformanceTracking } from './hooks/usePerformanceTracking';
 
 function RouteError() {
   const error = useRouteError();
   const isRouteError = isRouteErrorResponse(error);
+
+  useEffect(() => {
+    trackErrorWithContext(
+      error instanceof Error ? error : new Error(isRouteError ? `${error.status} - ${error.statusText}` : 'Route Error'),
+      {
+        category: 'UI',
+        severity: ErrorSeverity.HIGH,
+        componentName: 'RouteError',
+        action: 'route_error',
+        metadata: {
+          status: isRouteError ? error.status : undefined,
+          statusText: isRouteError ? error.statusText : undefined,
+          path: window.location.pathname,
+          timestamp: new Date().toISOString()
+        }
+      }
+    );
+  }, [error, isRouteError]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -124,6 +145,7 @@ const router = createBrowserRouter([
       { path: 'analytics', element: <DashboardContent /> },
       { path: 'waitlist', element: <BetaWaitlist /> },
       { path: 'feedback', element: <Feedback /> },
+      { path: 'logs', element: <Logs /> },
       { path: 'settings', element: <AdminSettings currentUserId="" isLoading={false} /> }
     ]
   },
@@ -135,6 +157,65 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
+  // Initialize performance tracking
+  usePerformanceTracking();
+
+  useEffect(() => {
+    // Global error handler for uncaught errors
+    const handleUnhandledError = (event: ErrorEvent) => {
+      trackErrorWithContext(event.error || new Error(event.message), {
+        category: 'SYSTEM',
+        subcategory: 'CRASH',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          type: 'unhandled_error',
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno
+        }
+      });
+    };
+
+    // Global handler for unhandled promise rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      trackErrorWithContext(
+        event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
+        {
+          category: 'SYSTEM',
+          subcategory: 'CRASH',
+          severity: ErrorSeverity.HIGH,
+          metadata: {
+            type: 'unhandled_rejection',
+            promise_id: event.promise['__zone_symbol__id']
+          }
+        }
+      );
+    };
+
+    // Global handler for network errors
+    const handleNetworkError = () => {
+      trackErrorWithContext(new Error('Network connection lost'), {
+        category: 'NETWORK',
+        subcategory: 'OFFLINE',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          type: 'connectivity',
+          online: navigator.onLine
+        }
+      });
+    };
+
+    window.addEventListener('error', handleUnhandledError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('offline', handleNetworkError);
+
+    return () => {
+      window.removeEventListener('error', handleUnhandledError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('offline', handleNetworkError);
+    };
+  }, []);
+
   return (
     <ThemeProvider>
       <ToastProvider>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { cn } from '../utils/cn';
 import { saveInitialRating, updateWithDetailedFeedback } from '../services/feedbackService';
 import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
+import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
 
 interface FeedbackFormProps {
   mapId: string;
@@ -92,6 +93,23 @@ export function FeedbackForm({ mapId, onClose }: FeedbackFormProps) {
       console.error('Error submitting feedback:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit feedback. Please try again.');
       
+      trackErrorWithContext(err instanceof Error ? err : new Error('Feedback submission failed'), {
+        category: 'USER_INPUT',
+        subcategory: 'FEEDBACK',
+        severity: ErrorSeverity.MEDIUM,
+        metadata: {
+          mapId,
+          feedbackId,
+          rating,
+          hasText: !!feedback,
+          useCase: useCase || undefined,
+          painPoint: painPoint || undefined,
+          hasOrganization: !!organization,
+          hasEmail: !!email,
+          error: err instanceof Error ? err.message : String(err)
+        }
+      });
+
       await trackEvent({
         event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
         event_data: { 

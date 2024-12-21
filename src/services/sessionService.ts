@@ -1,5 +1,6 @@
-import { supabase } from '../lib/supabaseClient';
+import supabase from '../lib/supabaseClient';
 import type { Session } from '../types/payment';
+import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
 
 /**
  * Creates a new session for tracking user activity
@@ -22,12 +23,30 @@ export const createSession = async (metadata?: Record<string, any>): Promise<Ses
       .single();
 
     if (error) {
-      throw new Error(`Failed to create session: ${error.message}`);
+      trackErrorWithContext(new Error(`Failed to create session: ${error.message}`), {
+        category: 'SESSION',
+        subcategory: 'CREATION',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          user_id: user.data.user?.id,
+          metadata,
+          error: error.message,
+          code: error.code
+        }
+      });
+      throw error;
     }
 
     return session;
   } catch (error) {
-    console.error('Error creating session:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Session creation failed'), {
+      category: 'SESSION',
+      subcategory: 'CREATION',
+      severity: ErrorSeverity.HIGH,
+      metadata: {
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
     throw error;
   }
 };
@@ -46,10 +65,30 @@ export const updateSessionStatus = async (
       .eq('id', sessionId);
 
     if (error) {
-      throw new Error(`Failed to update session status: ${error.message}`);
+      trackErrorWithContext(new Error(`Failed to update session status: ${error.message}`), {
+        category: 'SESSION',
+        subcategory: 'UPDATE',
+        severity: ErrorSeverity.MEDIUM,
+        metadata: {
+          sessionId,
+          status,
+          error: error.message,
+          code: error.code
+        }
+      });
+      throw error;
     }
   } catch (error) {
-    console.error('Error updating session status:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Session update failed'), {
+      category: 'SESSION',
+      subcategory: 'UPDATE',
+      severity: ErrorSeverity.MEDIUM,
+      metadata: {
+        sessionId,
+        status,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
     throw error;
   }
 };
@@ -66,12 +105,30 @@ export const getSession = async (sessionId: string): Promise<Session | null> => 
       .single();
 
     if (error) {
-      throw new Error(`Failed to fetch session: ${error.message}`);
+      trackErrorWithContext(new Error(`Failed to fetch session: ${error.message}`), {
+        category: 'SESSION',
+        subcategory: 'FETCH',
+        severity: ErrorSeverity.MEDIUM,
+        metadata: {
+          sessionId,
+          error: error.message,
+          code: error.code
+        }
+      });
+      throw error;
     }
 
     return session;
   } catch (error) {
-    console.error('Error fetching session:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Session fetch failed'), {
+      category: 'SESSION',
+      subcategory: 'FETCH',
+      severity: ErrorSeverity.MEDIUM,
+      metadata: {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
     throw error;
   }
 };
@@ -88,12 +145,28 @@ export const getUserActiveSessions = async (): Promise<Session[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to fetch user sessions: ${error.message}`);
+      trackErrorWithContext(new Error(`Failed to fetch user sessions: ${error.message}`), {
+        category: 'SESSION',
+        subcategory: 'FETCH_ALL',
+        severity: ErrorSeverity.MEDIUM,
+        metadata: {
+          error: error.message,
+          code: error.code
+        }
+      });
+      throw error;
     }
 
     return sessions || [];
   } catch (error) {
-    console.error('Error fetching user sessions:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Session fetch failed'), {
+      category: 'SESSION',
+      subcategory: 'FETCH_ALL',
+      severity: ErrorSeverity.MEDIUM,
+      metadata: {
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
     throw error;
   }
 };
@@ -106,14 +179,32 @@ export const cleanupExpiredSessions = async (): Promise<void> => {
     const { error } = await supabase
       .from('map_sessions')
       .update({ status: 'expired' })
-      .eq('status', 'active')
-      .lt('expires_at', new Date().toISOString());
+      .lt('expires_at', new Date().toISOString())
+      .eq('status', 'active');
 
     if (error) {
-      throw new Error(`Failed to cleanup expired sessions: ${error.message}`);
+      trackErrorWithContext(new Error(`Failed to cleanup expired sessions: ${error.message}`), {
+        category: 'SESSION',
+        subcategory: 'CLEANUP',
+        severity: ErrorSeverity.LOW,
+        metadata: {
+          error: error.message,
+          code: error.code,
+          timestamp: new Date().toISOString()
+        }
+      });
+      throw error;
     }
   } catch (error) {
-    console.error('Error cleaning up expired sessions:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Session cleanup failed'), {
+      category: 'SESSION',
+      subcategory: 'CLEANUP',
+      severity: ErrorSeverity.LOW,
+      metadata: {
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      }
+    });
     throw error;
   }
 };

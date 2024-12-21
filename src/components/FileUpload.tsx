@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Upload, AlertCircle, CheckCircle2, FileDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
+import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -148,16 +149,51 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) {
-      processFile(file);
+      handleFileUpload(file);
     }
   }, [onFileSelect]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      processFile(file);
+      handleFileUpload(file);
     }
   }, [onFileSelect]);
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const isValid = await validateFile(file);
+      if (!isValid) {
+        trackErrorWithContext(new Error('Invalid file format'), {
+          category: 'USER_INPUT',
+          subcategory: 'FILE_UPLOAD',
+          severity: ErrorSeverity.LOW,
+          metadata: {
+            filename: file.name,
+            fileSize: file.size,
+            fileType: file.type
+          }
+        });
+        return;
+      }
+
+      const processedFile = await processFile(file);
+      onFileSelect(processedFile);
+    } catch (err) {
+      trackErrorWithContext(err instanceof Error ? err : new Error('File upload failed'), {
+        category: 'USER_INPUT',
+        subcategory: 'FILE_UPLOAD',
+        severity: ErrorSeverity.MEDIUM,
+        metadata: {
+          filename: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          error: err instanceof Error ? err.message : String(err)
+        }
+      });
+      throw err;
+    }
+  };
 
   return (
     <div

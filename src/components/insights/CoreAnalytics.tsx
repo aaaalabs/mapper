@@ -57,12 +57,12 @@ interface MetricCardProps {
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ title, value, trend, icon: Icon, subtitle }) => {
-  const trendValue = trend ? Math.round(trend * 10) / 10 : null; // Round to 1 decimal place
+  const trendValue = trend ? Math.round(trend * 10) / 10 : null;
   const isPositive = trendValue && trendValue > 0;
   const isNegative = trendValue && trendValue < 0;
 
   return (
-    <div className="p-6 bg-background-white dark:bg-background rounded-lg shadow-sm">
+    <div className={cn("p-6 bg-background-white dark:bg-background rounded-lg shadow-sm")}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="p-2 bg-accent/10 dark:bg-accent/20 rounded-lg">
@@ -71,7 +71,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, trend, icon: Icon
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
             <div className="flex items-baseline space-x-2">
-              <p className="text-2xl font-semibold text-primary">{value}</p>
+              <p className="text-2xl font-semibold text-foreground">{value}</p>
               {subtitle && (
                 <span className="text-sm text-muted-foreground">{subtitle}</span>
               )}

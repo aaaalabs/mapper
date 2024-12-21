@@ -1,6 +1,6 @@
 import axios from 'axios';
 import RevolutCheckout from '@revolut/checkout';
-import { supabase } from '../lib/supabaseClient';
+import supabase from '../lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import type { CreatePaymentOrderDTO, PaymentOrder } from '../types/payment';
 

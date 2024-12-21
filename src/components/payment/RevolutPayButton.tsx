@@ -3,6 +3,7 @@ import { initializeRevolutPay, createRevolutOrder, updateOrderStatus } from '@/s
 import { useSession } from '@/hooks/useSession';
 import { useToast } from 'src/hooks/useToast';
 import type { CreatePaymentOrderDTO } from '@/types/payment';
+import { trackErrorWithContext, ErrorSeverity } from '@/services/errorTracking';
 
 interface RevolutPayButtonProps {
   amount: number;
@@ -100,9 +101,23 @@ export const RevolutPayButton = ({
                 break;
               case 'error':
                 await updateOrderStatus(orderRef, 'failed');
+                const errorMessage = event.error?.message || 'Payment failed';
+                trackErrorWithContext(new Error(errorMessage), {
+                  category: 'PAYMENT',
+                  subcategory: 'REVOLUT',
+                  severity: ErrorSeverity.HIGH,
+                  metadata: {
+                    orderRef,
+                    amount,
+                    currency,
+                    errorCode: event.error?.code,
+                    errorType: event.error?.type,
+                    session_id: session?.id
+                  }
+                });
                 addToast({
                   title: 'Payment Failed',
-                  description: event.error?.message || 'Payment processing failed. Please try again.',
+                  description: errorMessage,
                   variant: 'destructive',
                 });
                 if (onError) onError(event.error);

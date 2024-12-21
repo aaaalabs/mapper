@@ -1,8 +1,7 @@
-import { supabase } from '../lib/supabaseClient';
+import supabaseClient from '../lib/supabaseClient';
 
-// Re-export the singleton client
-export default supabase;
-export { supabase };
+// Export the singleton client
+export const supabase = supabaseClient;
 
 // Debug logging for development
 if (import.meta.env.DEV) {

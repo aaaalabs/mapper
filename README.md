@@ -83,6 +83,32 @@ mapper/
 └── public/           # Static files
 ```
 
+## Authentication in Mapper
+
+### Important Authentication Rules
+
+1. **Single Admin User**
+   - Only one authenticated user: `admin@libralab.ai`
+   - No other authentication or user roles
+   - All other users are treated as anonymous leads
+
+2. **No Complex Auth**
+   - No role-based access control
+   - No user management system
+   - No additional authentication methods
+
+3. **Authentication Flow**
+   - Admin logs in with email/password
+   - All other users are anonymous
+   - Session tracking for analytics only
+
+### Development Guidelines
+
+- DO NOT add user roles or permissions
+- DO NOT create additional authenticated users
+- DO NOT implement complex auth flows
+- DO use anonymous session tracking for leads
+
 ## Performance Considerations
 
 ### Map Rendering

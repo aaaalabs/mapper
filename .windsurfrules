@@ -50,6 +50,7 @@ mapper/
 [002] Keep all Supabase table names prefixed with map_ or maps_
 [003] Place all reusable hooks in src/hooks/ with use prefix
 [004] Place all type definitions in src/types/ with proper namespacing
+[005] Keep code changes minimal and focused on immediate user value; only implement what's needed for the current task and prefer simple, direct solutions using existing components and styles.
 
 # TypeScript Best Practices
 [101] Use explicit return types for all functions
@@ -94,6 +95,23 @@ mapper/
 [703] Implement proper CORS handling
 [704] Secure all payment flows
 
+# Authentication and Session Management
+[751] Use admin@libralab.ai as the only authenticated user (admin role not required)
+[752] Focus on anonymous session tracking for leads instead of user authentication
+[753] Do not implement additional user authentication functions
+[754] Track all anonymous sessions in map_analytics_events table
+[755] Use session_id for correlating user journey and actions
+[756] Implement proper session cleanup for inactive sessions
+[757] Store only non-personally identifiable information in sessions
+[758] Track conversion points throughout the user journey
+[759] Maintain session consistency across page reloads
+[760] Use proper session timeout handling
+[761] There is no concept of user roles or permissions - admin@libralab.ai is a regular user
+[762] All visitors except admin@libralab.ai must be treated as anonymous leads
+[763] Never implement or suggest implementing additional authentication methods
+[764] Focus on session tracking and analytics for anonymous users
+[765] Do not store any user-specific data except for admin@libralab.ai
+
 # Git Workflow
 [801] Use conventional commit messages
 [802] Update changelog for all notable changes
@@ -108,7 +126,6 @@ mapper/
 [905] Follow mobile-first approach for all component designs
 [906] Make sure that there is always a working dark mode variant with contrasting colors of the UI
 
-
 # Documentation Guidelines
 [1001] Document all non-obvious code with inline comments
 [1002] Keep README.md up-to-date with setup and development instructions
@@ -121,5 +138,26 @@ mapper/
 [1009] Keep map configuration options documented
 [1010] Document performance considerations for data-heavy features
 
+# Component Reuse and Organization
+[8001] Always check for existing elements, files, or components in the codebase before creating new ones to avoid duplicates
+- Search through the entire codebase for similar implementations
+- Check component libraries and shared UI folders first
+- Document any decisions to create new components vs reusing existing ones
+- Consider refactoring similar components into a single reusable one
+
+[8002] Create centralized UI elements like badges when used across multiple pages
+- Implement with proper light and dark mode support
+- Place in shared ui components directory
+- Use semantic color tokens for theme consistency
+- Include proper TypeScript types and documentation
+- Add usage examples in component comments
+
 # Windsurf Specific Rules
 [9001] Automatically suggest additions for .windsurfrules where best practices are used during the development process
+
+[9002] When requesting new Windsurf rules, provide drafts only
+- Present rules as a markdown draft for review
+- Do not attempt to modify .windsurfrules directly
+- Allow the user to manually copy and integrate rules
+- Include clear descriptions and examples
+- Follow existing rule numbering convention

@@ -1,6 +1,19 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { generateViteCspArray, generateCspString } from './src/config/security';
+
+// Plugin to inject CSP into HTML
+const cspInjectorPlugin = (): Plugin => ({
+  name: 'csp-injector',
+  transformIndexHtml: {
+    enforce: 'pre',
+    transform(html) {
+      return html.replace('%VITE_CSP_META%', generateCspString());
+    },
+  },
+});
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -10,7 +23,15 @@ export default defineConfig(({ mode }) => {
   console.log('Configuring Vite with Revolut API key:', env.VITE_REVOLUT_SANDBOX_SK ? 'Present' : 'Missing');
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      sentryVitePlugin({
+        org: "voiceloop",
+        project: "mapper",
+        authToken: env.SENTRY_AUTH_TOKEN,
+      }),
+      cspInjectorPlugin(),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src')
@@ -36,7 +57,6 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api\/revolut/, ''),
           configure: (proxy, options) => {
             proxy.on('proxyReq', (proxyReq, req, res) => {
-              // Use the secret key for authentication
               proxyReq.setHeader('Authorization', `Bearer ${env.VITE_REVOLUT_SANDBOX_SK}`);
             });
 
@@ -47,23 +67,11 @@ export default defineConfig(({ mode }) => {
         },
       },
       headers: {
-        'Content-Security-Policy': [
-          // Allow resources from trusted domains
-          "default-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co;",
-          // Allow images from trusted sources including map tiles
-          "img-src 'self' data: https://*.tile.openstreetmap.org https://*.imagekit.io https://*.unsplash.com https://images.unsplash.com https://*.licdn.com https://media.licdn.com https://*.google.com https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://*.global.ssl.fastly.net;",
-          // Allow connections to APIs and WebSocket
-          "connect-src 'self' https://sandbox-merchant.revolut.com https://*.supabase.co wss://*.supabase.co;",
-          // Allow frames for Revolut checkout
-          "frame-src 'self' https://sandbox-merchant.revolut.com;",
-          // Allow scripts with unsafe-inline for React
-          "script-src 'self' 'unsafe-inline' https://sandbox-merchant.revolut.com;",
-          // Allow styles with unsafe-inline for Tailwind
-          "style-src 'self' 'unsafe-inline';"
-        ].join('; ')
+        'Content-Security-Policy': generateViteCspArray().join('; ')
       }
     },
     build: {
+      sourcemap: true,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -73,7 +81,6 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      // Expose env variables to the client
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY)
     }

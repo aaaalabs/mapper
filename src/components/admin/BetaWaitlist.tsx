@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { adminStyles as styles } from './styles/adminStyles';
+import { Button } from '../ui/Button';
 
 interface WaitlistEntry {
   id: string;
@@ -55,73 +57,62 @@ export function BetaWaitlist() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading waitlist...</div>;
+    return <div className={styles.loading}>Loading waitlist...</div>;
   }
 
   if (error) {
-    return <div className="text-red-500 py-8">Error: {error}</div>;
+    return <div className={styles.error}>Error: {error}</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Beta Waitlist</h1>
-        <span className="text-sm text-gray-500 dark:text-gray-400">{entries.length} entries</span>
+    <div className={styles.pageContainer}>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>Beta Waitlist</h1>
+        <span className="text-sm text-muted-foreground">{entries.length} entries</span>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-900">
+      <div className={styles.panel}>
+        <table className={styles.table}>
+          <thead className={styles.tableHeader}>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Email
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Actions
-              </th>
+              <th className={styles.tableHeaderCell}>Email</th>
+              <th className={styles.tableHeaderCell}>Date</th>
+              <th className={styles.tableHeaderCell}>Status</th>
+              <th className={styles.tableHeaderCell}>Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className={styles.tableBody}>
             {entries.map((entry) => (
               <tr key={entry.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {entry.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td className={styles.tableCell}>{entry.email}</td>
+                <td className={styles.tableCellSecondary}>
                   {format(new Date(entry.created_at), 'MMM d, yyyy')}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={cn(
-                    'px-2 inline-flex text-xs leading-5 font-semibold rounded-full',
-                    entry.status === 'approved' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-                    entry.status === 'rejected' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-                    entry.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                  )}>
+                <td className={styles.tableCell}>
+                  <span className={cn(styles.badge.base, styles.badge[entry.status])}>
                     {entry.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className={styles.tableCell}>
                   <div className="flex space-x-2">
-                    <button
-                      onClick={() => updateStatus(entry.id, 'approved')}
-                      disabled={entry.status === 'approved'}
-                      className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => updateStatus(entry.id, 'rejected')}
-                      disabled={entry.status === 'rejected'}
-                      className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
+                    {entry.status !== 'approved' && (
+                      <Button
+                        variant="action"
+                        size="sm"
+                        onClick={() => updateStatus(entry.id, 'approved')}
+                      >
+                        Approve
+                      </Button>
+                    )}
+                    {entry.status !== 'rejected' && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => updateStatus(entry.id, 'rejected')}
+                      >
+                        Reject
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

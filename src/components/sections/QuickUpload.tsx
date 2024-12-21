@@ -18,6 +18,7 @@ import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { MapSettings } from '../../types/mapSettings';
 import { supabase } from '../../lib/supabase';
+import { trackErrorWithContext, ErrorSeverity } from '../../services/errorTracking';
 
 interface QuickUploadProps {
   onMapCreated: (mapId: string, mapName: string, shareLink: string) => void;
@@ -124,59 +125,57 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   }, [currentMapId, mapName]);
 
   const handleFileSelect = async (file: File) => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
-
-      await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.STARTED,
-        event_data: { file_size: file.size }
-      });
-
-      console.log('Starting file processing and geocoding...');
-      const parsedMembers = await parseCsvFile(file);
-      
-      if (parsedMembers.length === 0) {
-        throw new Error('No valid community members found in the CSV file');
+      const data = await parseCsvFile(file);
+      if (!data.length) {
+        throw new Error('No valid data found in the CSV file');
       }
 
-      // Calculate map center from the geocoded members
-      const mapCenter = calculateMapCenter(parsedMembers);
-      
-      setMembers(parsedMembers);
-      setCenter(mapCenter);
+      const newCenter = calculateMapCenter(data);
+      if (!newCenter) {
+        trackErrorWithContext(new Error('Failed to calculate map center'), {
+          category: 'MAP_GENERATION',
+          subcategory: 'GEOCODING',
+          severity: ErrorSeverity.HIGH,
+          metadata: {
+            fileSize: file.size,
+            recordCount: data.length,
+            hasValidCoordinates: data.some(d => d.latitude && d.longitude)
+          }
+        });
+        throw new Error('Could not determine map center. Please check if your data contains valid coordinates.');
+      }
+
+      setMembers(data);
+      setCenter(newCenter);
       setUploadStep('preview');
-      
-      // Create the map in Supabase immediately after successful parsing
-      const savedMap = await createMap({
+
+      // Create map in database
+      const { id: mapId, shareLink } = await createMap({
         name: mapName,
-        members: parsedMembers,
-        center: mapCenter || [0, 0],
-        zoom: 2,
+        data,
         settings: mapSettings
       });
 
-      // Update state with the created map info
-      setCurrentMapId(savedMap.id);
-      setMapName(savedMap.name);
-      
-      // Call onMapCreated callback with the map info
-      if (onMapCreated) {
-        onMapCreated(savedMap.id, savedMap.name, `${window.location.origin}/map/${savedMap.id}`);
-      }
-      
-      await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETED,
-        event_data: { members_count: parsedMembers.length }
+      setCurrentMapId(mapId);
+      onMapCreated(mapId, mapName, shareLink);
+
+    } catch (err) {
+      trackErrorWithContext(err instanceof Error ? err : new Error('Map generation failed'), {
+        category: 'MAP_GENERATION',
+        subcategory: 'PROCESSING',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          error: err instanceof Error ? err.message : String(err)
+        }
       });
-    } catch (error) {
-      console.error('Error processing file:', error);
-      setError(error instanceof Error ? error.message : 'Failed to process the file');
-      
-      await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.ERROR,
-        event_data: { error: error instanceof Error ? error.message : 'Unknown error' }
-      });
+      setError(err instanceof Error ? err.message : 'Failed to process the file. Please check the format and try again.');
     } finally {
       setIsLoading(false);
     }

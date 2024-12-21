@@ -7,47 +7,49 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-// Create a single instance of the Supabase client
+// Create a single Supabase client instance
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
-    storageKey: 'mapper_auth',
-    detectSessionInUrl: true,
-    autoRefreshToken: true
-  },
-  db: {
-    schema: 'public'
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json'
-    }
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
 });
 
-// Initialize anonymous session if needed
-const initializeAnonymousSession = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
-    try {
-      const timestamp = new Date().getTime();
-      const { error } = await supabase.auth.signUp({
-        email: `anon_${timestamp}_${Math.random().toString(36).slice(2)}@mapper.local`,
-        password: crypto.randomUUID(),
-      });
+// Health check function
+export const healthCheck = async () => {
+  try {
+    // Simple query to check connection
+    const { data, error } = await supabase
+      .from('map_analytics_events')
+      .select('id')
+      .limit(1)
+      .single();
 
-      if (error) {
-        console.error('Error creating anonymous session:', error);
-      }
-    } catch (error) {
-      console.error('Failed to initialize anonymous session:', error);
-    }
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Supabase health check failed:', error);
+    return false;
   }
 };
 
-// Initialize the session
-initializeAnonymousSession();
+// Initialize function
+export const initialize = async () => {
+  try {
+    const isHealthy = await healthCheck();
+    if (!isHealthy) {
+      throw new Error('Supabase health check failed');
+    }
+    console.log('Supabase initialized successfully');
+    return true;
+  } catch (error) {
+    console.error('Supabase initialization failed:', error);
+    return false;
+  }
+};
+
+// Initialize on load
+initialize().catch(console.error);
 
 export default supabase;
-export { supabase };

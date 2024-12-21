@@ -11,36 +11,40 @@ interface LoginModalProps {
   onClose: () => void;
 }
 
+const ADMIN_EMAIL = 'admin@libralab.ai';
+
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
-      if (email === 'admin@libralab.ai') {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (error) throw error;
+      if (signInError) throw signInError;
 
-        if (data?.user) {
-          sessionStorage.setItem('is_admin', 'true');
-          navigate('/insights');
-          onClose();
-        }
-      } else {
-        // For non-admin users, just close the modal
+      if (data?.user?.email === ADMIN_EMAIL) {
+        sessionStorage.setItem('is_admin', 'true');
+        navigate('/insights');
         onClose();
+      } else {
+        // Non-admin users are not allowed
+        setError('Invalid credentials');
+        await supabase.auth.signOut();
       }
     } catch (err) {
       console.error('Login error:', err);
+      setError('Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -103,23 +107,29 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <button
-              type="button"
-              onClick={handleRequestAccess}
-              className="text-primary hover:text-primary-dark dark:hover:text-primary-light"
-            >
-              Request access
-            </button>
-          </div>
+          {error && (
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          )}
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={loading}
+              isLoading={loading}
+            >
+              Sign In
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleRequestAccess}
+              className="w-full"
+            >
+              Request Access
+            </Button>
+          </div>
         </form>
       </div>
     </Dialog>

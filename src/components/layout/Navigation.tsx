@@ -31,13 +31,10 @@ export function Navigation({ onLoginClick, onBetaWaitlistClick }: NavigationProp
 
     checkAdmin();
 
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        sessionStorage.removeItem('is_admin');
         setIsAdmin(false);
-      } else if (event === 'SIGNED_IN') {
-        const isAdminSession = sessionStorage.getItem('is_admin') === 'true';
-        setIsAdmin(session?.user?.email === 'admin@libralab.ai' && isAdminSession);
       }
     });
 
@@ -45,10 +42,6 @@ export function Navigation({ onLoginClick, onBetaWaitlistClick }: NavigationProp
       subscription.unsubscribe();
     };
   }, []);
-
-  const handleAdminAccess = () => {
-    navigate('/admin/login');
-  };
 
   const handleBetaClick = () => {
     if (onBetaWaitlistClick) {
@@ -71,30 +64,22 @@ export function Navigation({ onLoginClick, onBetaWaitlistClick }: NavigationProp
         {isAdmin ? (
           <AdminMenu />
         ) : (
-          <button
-            onClick={handleAdminAccess}
-            className="p-2 text-gray-500 hover:text-gray-700"
-            title="Admin Access"
+          <Button
+            variant="ghost"
+            onClick={onLoginClick}
+            className="flex items-center gap-2"
           >
-            {/* <Settings size={20} /> */}
-          </button>
+            <LogIn className="h-4 w-4" />
+            <span className="hidden sm:inline">Login</span>
+          </Button>
         )}
-        <button 
-          onClick={onLoginClick}
-          className="hover:text-primary flex items-center gap-2 text-secondary"
-          aria-label="Beta Login"
-        >
-          <LogIn className="h-5 w-5" />
-          <span className="hidden sm:inline">Beta Login</span>
-        </button>
         <Button 
           variant="primary" 
           onClick={handleBetaClick}
           className="flex items-center gap-2"
-          aria-label="Join Beta Waitlist"
         >
-          <Users className="h-5 w-5" />
-          <span className="hidden sm:inline">Join Beta Waitlist</span>
+          <Users className="h-4 w-4" />
+          <span className="hidden sm:inline">Join Beta</span>
         </Button>
       </div>
     </nav>

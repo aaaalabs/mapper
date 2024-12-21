@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { EyeIcon, FlagIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { adminStyles as styles } from './styles/adminStyles';
 
 interface Report {
   id: string;
@@ -67,99 +68,83 @@ export function ContentModeration() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading reports...</div>;
+    return <div className={styles.loading}>Loading reports...</div>;
   }
 
   if (error) {
-    return <div className="text-red-500 py-8">Error: {error}</div>;
+    return <div className={styles.error}>Error: {error}</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Content Moderation</h1>
+    <div className={styles.pageContainer}>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>Content Moderation</h1>
         <div className="flex items-center space-x-2">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+          <span className={cn(styles.badge.base, styles.badge.pending)}>
             <FlagIcon className="h-4 w-4 mr-1" />
             {reports.filter(r => r.status === 'pending').length} pending
           </span>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-900">
+      <div className={styles.panel}>
+        <table className={styles.table}>
+          <thead className={styles.tableHeader}>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Map
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Reason
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Reported
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Actions
-              </th>
+              <th className={styles.tableHeaderCell}>Map</th>
+              <th className={styles.tableHeaderCell}>Reason</th>
+              <th className={styles.tableHeaderCell}>Status</th>
+              <th className={styles.tableHeaderCell}>Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className={styles.tableBody}>
             {reports.map((report) => (
               <tr key={report.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {report.map.title}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        Created {format(new Date(report.map.created_at), 'MMM d, yyyy')}
-                      </div>
-                    </div>
+                <td className={styles.tableCell}>
+                  <div className="flex flex-col">
+                    <span>{report.map.title}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Created {format(new Date(report.map.created_at), 'MMM d, yyyy')}
+                    </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-white">{report.reason}</div>
+                <td className={styles.tableCell}>
+                  <div className="max-w-md">
+                    <p className="line-clamp-2">{report.reason}</p>
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={cn(
-                    'px-2 inline-flex text-xs leading-5 font-semibold rounded-full',
-                    report.status === 'resolved' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-                    report.status === 'dismissed' && 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
-                    report.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                  )}>
+                <td className={styles.tableCell}>
+                  <span className={cn(styles.badge.base, styles.badge[report.status])}>
                     {report.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {format(new Date(report.created_at), 'MMM d, yyyy')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className={styles.tableCell}>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => window.open(`/map/${report.map_id}`, '_blank')}
-                      className="text-blue-600 hover:text-blue-900"
+                      className={cn(styles.button.base, styles.button.ghost)}
+                      onClick={() => setSelectedReport(report)}
                     >
-                      <EyeIcon className="h-5 w-5" />
+                      <EyeIcon className="h-4 w-4 mr-1" />
+                      View
                     </button>
-                    <button
-                      onClick={() => updateReportStatus(report.id, 'resolved')}
-                      disabled={report.status !== 'pending'}
-                      className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                    >
-                      <CheckCircleIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => updateReportStatus(report.id, 'dismissed')}
-                      disabled={report.status !== 'pending'}
-                      className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                    >
-                      <XCircleIcon className="h-5 w-5" />
-                    </button>
+                    {report.status === 'pending' && (
+                      <>
+                        <button
+                          className={cn(styles.button.base, styles.button.primary)}
+                          onClick={() => updateReportStatus(report.id, 'resolved')}
+                        >
+                          <CheckCircleIcon className="h-4 w-4 mr-1" />
+                          Resolve
+                        </button>
+                        <button
+                          className={cn(styles.button.base, styles.button.danger)}
+                          onClick={() => updateReportStatus(report.id, 'dismissed')}
+                        >
+                          <XCircleIcon className="h-4 w-4 mr-1" />
+                          Dismiss
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -167,6 +152,65 @@ export function ContentModeration() {
           </tbody>
         </table>
       </div>
+
+      {selectedReport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+          <div className={cn(styles.panel, "max-w-2xl w-full p-6")}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-lg font-semibold">Report Details</h2>
+              <button
+                className={cn(styles.button.base, styles.button.ghost)}
+                onClick={() => setSelectedReport(null)}
+              >
+                <XCircleIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium text-muted-foreground mb-1">Map Information</h3>
+                <p className="text-foreground">{selectedReport.map.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  Created {format(new Date(selectedReport.map.created_at), 'MMM d, yyyy')}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium text-muted-foreground mb-1">Report Reason</h3>
+                <p className="text-foreground">{selectedReport.reason}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-muted-foreground mb-1">Status</h3>
+                <span className={cn(styles.badge.base, styles.badge[selectedReport.status])}>
+                  {selectedReport.status}
+                </span>
+              </div>
+              {selectedReport.status === 'pending' && (
+                <div className="flex space-x-2 mt-6">
+                  <button
+                    className={cn(styles.button.base, styles.button.primary)}
+                    onClick={() => {
+                      updateReportStatus(selectedReport.id, 'resolved');
+                      setSelectedReport(null);
+                    }}
+                  >
+                    <CheckCircleIcon className="h-4 w-4 mr-1" />
+                    Resolve Report
+                  </button>
+                  <button
+                    className={cn(styles.button.base, styles.button.danger)}
+                    onClick={() => {
+                      updateReportStatus(selectedReport.id, 'dismissed');
+                      setSelectedReport(null);
+                    }}
+                  >
+                    <XCircleIcon className="h-4 w-4 mr-1" />
+                    Dismiss Report
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
