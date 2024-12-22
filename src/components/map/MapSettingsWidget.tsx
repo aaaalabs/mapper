@@ -160,62 +160,6 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
     }
   }, [mapId, name, onNameChange]);
 
-  // Render map name settings only in preview mode
-  const renderMapNameSettings = () => {
-    if (variant !== 'preview') return null;
-    
-    return (
-      <div className="space-y-4 mb-6">
-        <h3 className="text-sm font-medium text-gray-700">Map Name</h3>
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={settings.customization.showName}
-            onChange={(e) =>
-              handleSettingsChange({
-                customization: {
-                  ...settings.customization,
-                  showName: e.target.checked
-                }
-              })
-            }
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            id="show-map-name"
-          />
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Enter map name"
-              className={cn(
-                "w-full px-3 py-1.5 border rounded-md text-sm pr-8",
-                "focus:outline-none focus:ring-2 focus:ring-blue-500",
-                !settings.customization.showName && "text-gray-400 bg-gray-50",
-                syncError && "border-red-500 focus:ring-red-500"
-              )}
-            />
-            {mapId && (
-              <div 
-                className={cn(
-                  "absolute right-2.5 top-1/2 -translate-y-1/2",
-                  "transition-all duration-300",
-                  isSyncing && "animate-spin text-blue-500",
-                  isSynced && "text-green-500",
-                  syncError && "text-red-500",
-                  !isSyncing && !isSynced && !syncError && "text-gray-400"
-                )}
-                title={syncError || undefined}
-              >
-                {syncError ? <AlertCircle size={14} /> : <RefreshCw size={14} />}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className={className}>
       <button
@@ -226,8 +170,16 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
       </button>
 
       {isExpanded && (
-        <div className="absolute top-12 right-0 w-[325px] bg-white rounded-lg shadow-lg p-4" style={{ zIndex: Z_INDEX.MAP_SETTINGS }}>
-          <div className="flex items-center justify-between mb-4">
+        <div 
+          className={cn(
+            "absolute top-12 right-0 bg-white rounded-lg shadow-lg",
+            "w-[325px] max-w-[calc(100vw-2rem)]",
+            "p-2 sm:p-4"
+          )}
+          style={{ zIndex: Z_INDEX.MAP_SETTINGS }}
+        >
+          {/* Desktop Header */}
+          <div className="items-center justify-between mb-4 hidden sm:flex">
             <h2 className="text-lg font-medium text-gray-900">Map Settings</h2>
             <button
               onClick={() => setIsExpanded(false)}
@@ -237,15 +189,119 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
             </button>
           </div>
 
-          <div className="space-y-6">
-            {/* Map Name Settings - Only in preview mode */}
-            {renderMapNameSettings()}
+          {/* Mobile Header with Map Name */}
+          {variant === 'preview' && (
+            <div className="flex items-center gap-2 mb-2 sm:hidden">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <input
+                  type="checkbox"
+                  checked={settings.customization.showName}
+                  onChange={(e) =>
+                    handleSettingsChange({
+                      customization: {
+                        ...settings.customization,
+                        showName: e.target.checked
+                      }
+                    })
+                  }
+                  className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <div className="relative flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="Map name"
+                    className={cn(
+                      "w-full h-8 px-2 border rounded-md text-sm pr-8",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500",
+                      !settings.customization.showName && "text-gray-400 bg-gray-50",
+                      syncError && "border-red-500 focus:ring-red-500"
+                    )}
+                  />
+                  {mapId && (
+                    <div 
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2",
+                        "transition-all duration-300",
+                        isSyncing && "animate-spin text-blue-500",
+                        isSynced && "text-green-500",
+                        syncError && "text-red-500",
+                        !isSyncing && !isSynced && !syncError && "text-gray-400"
+                      )}
+                      title={syncError || undefined}
+                    >
+                      {syncError ? <AlertCircle size={14} /> : <RefreshCw size={14} />}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="text-gray-500 hover:text-gray-700 shrink-0"
+              >
+                <ChevronUp className="w-5 h-5" />
+              </button>
+            </div>
+          )}
 
-            {/* Features Section - Always visible */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-700">Features</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex items-center gap-2">
+          <div className="space-y-2 sm:space-y-6">
+            {/* Map Name Settings - Only in preview mode and desktop */}
+            {variant === 'preview' && (
+              <div className="hidden sm:block mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-4">Map Name</h3>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.customization.showName}
+                    onChange={(e) =>
+                      handleSettingsChange({
+                        customization: {
+                          ...settings.customization,
+                          showName: e.target.checked
+                        }
+                      })
+                    }
+                    className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      placeholder="Map name"
+                      className={cn(
+                        "w-full h-8 px-3 border rounded-md text-sm pr-8",
+                        "focus:outline-none focus:ring-2 focus:ring-blue-500",
+                        !settings.customization.showName && "text-gray-400 bg-gray-50",
+                        syncError && "border-red-500 focus:ring-red-500"
+                      )}
+                    />
+                    {mapId && (
+                      <div 
+                        className={cn(
+                          "absolute right-2 top-1/2 -translate-y-1/2",
+                          "transition-all duration-300",
+                          isSyncing && "animate-spin text-blue-500",
+                          isSynced && "text-green-500",
+                          syncError && "text-red-500",
+                          !isSyncing && !isSynced && !syncError && "text-gray-400"
+                        )}
+                        title={syncError || undefined}
+                      >
+                        {syncError ? <AlertCircle size={14} /> : <RefreshCw size={14} />}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Features Section */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 hidden sm:block mb-2">Features</h3>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                <label className="flex items-center gap-2 min-w-0 h-8">
                   <input
                     type="checkbox"
                     checked={settings.features.enableClustering}
@@ -255,11 +311,11 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
                         enableClustering: !settings.features.enableClustering
                       }
                     })}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <span className="text-sm text-gray-600">Clustering</span>
+                  <span className="text-sm text-gray-600 truncate">Clustering</span>
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 min-w-0 h-8">
                   <input
                     type="checkbox"
                     checked={settings.features.enableFullscreen}
@@ -269,12 +325,12 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
                         enableFullscreen: !settings.features.enableFullscreen
                       }
                     })}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <span className="text-sm text-gray-600">Fullscreen</span>
+                  <span className="text-sm text-gray-600 truncate">Fullscreen</span>
                 </label>
                 {variant === 'preview' && (
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 min-w-0 h-8">
                     <input
                       type="checkbox"
                       checked={settings.features.enableSharing}
@@ -284,12 +340,12 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
                           enableSharing: !settings.features.enableSharing
                         }
                       })}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <span className="text-sm text-gray-600">Share</span>
+                    <span className="text-sm text-gray-600 truncate">Share</span>
                   </label>
                 )}
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 min-w-0 h-8">
                   <input
                     type="checkbox"
                     checked={settings.features.enableSearch}
@@ -299,9 +355,9 @@ export const MapSettingsWidget: React.FC<MapSettingsWidgetProps> = ({
                         enableSearch: !settings.features.enableSearch
                       }
                     })}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <span className="text-sm text-gray-600">Search</span>
+                  <span className="text-sm text-gray-600 truncate">Search</span>
                 </label>
               </div>
             </div>

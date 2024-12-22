@@ -1,183 +1,154 @@
 import { supabase } from '../lib/supabase';
-import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from './analytics';
-import { trackEvent, ANALYTICS_EVENTS } from './analytics';
+import { trackErrorWithContext, ErrorSeverity } from './errorTracking';
 
-export interface InitialRating {
+interface FeedbackStats {
+  totalMaps: number;
+  averageRating: number;
+  testimonialCount: number;
+}
+
+interface SaveRatingParams {
   mapId: string;
   rating: number;
-  session_id?: string | undefined;
+  session_id?: string | null;
+  context?: 'download' | 'share';
 }
 
-export interface DetailedFeedback {
-  feedbackId: string;
+interface UpdateFeedbackParams {
+  mapId: string;
   feedback?: string;
-  painPoint?: string;
-  organization?: string;
-  email?: string;
   canFeature?: boolean;
-  session_id?: string | undefined;
 }
 
-export interface FeedbackMetadata {
-  email?: string | null;
-  useCase?: string | null;
-  painPoint?: string | null;
-  canFeature?: boolean;
-  organization?: string | null;
-  initial_submission?: string;
-  rating_context?: string;
-  last_updated?: string;
-}
-
-export const saveInitialRating = async ({ mapId, rating, session_id }: InitialRating) => {
+export async function getFeedbackStats(): Promise<FeedbackStats> {
   try {
-    const { data, error } = await supabase
+    // Get total maps
+    const { count: totalMaps } = await supabase
+      .from('maps')
+      .select('*', { count: 'exact', head: true });
+
+    // Get average rating
+    const { data: ratingData } = await supabase
+      .from('map_feedback')
+      .select('rating');
+    
+    const ratings = ratingData?.map(d => d.rating) || [];
+    const averageRating = ratings.length > 0 
+      ? ratings.reduce((a, b) => a + b, 0) / ratings.length 
+      : 0;
+
+    // Get testimonial count
+    const { count: testimonialCount } = await supabase
+      .from('map_feedback')
+      .select('*', { count: 'exact', head: true })
+      .not('feedback', 'is', null)
+      .eq('can_feature', true);
+
+    return {
+      totalMaps: totalMaps || 0,
+      averageRating: Number(averageRating.toFixed(1)),
+      testimonialCount: testimonialCount || 0
+    };
+  } catch (error) {
+    console.error('Error getting feedback stats:', error);
+    trackErrorWithContext(
+      error instanceof Error ? error : new Error('Failed to get feedback stats'),
+      {
+        severity: ErrorSeverity.HIGH,
+        category: 'FEEDBACK',
+        subcategory: 'VALIDATION',
+        metadata: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+    );
+    return {
+      totalMaps: 0,
+      averageRating: 0,
+      testimonialCount: 0
+    };
+  }
+}
+
+export async function getRandomTestimonial(): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('map_feedback')
+      .select('feedback')
+      .not('feedback', 'is', null)
+      .eq('can_feature', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    return data?.[0]?.feedback || null;
+  } catch (error) {
+    console.error('Error getting testimonial:', error);
+    trackErrorWithContext(
+      error instanceof Error ? error : new Error('Failed to get testimonial'),
+      {
+        severity: ErrorSeverity.HIGH,
+        category: 'FEEDBACK',
+        subcategory: 'VALIDATION',
+        metadata: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+    );
+    return null;
+  }
+}
+
+export async function saveInitialRating({ mapId, rating, session_id, context }: SaveRatingParams): Promise<void> {
+  try {
+    await supabase
       .from('map_feedback')
       .insert({
         map_id: mapId,
         rating,
         session_id,
-        status: 'pending',
-        metadata: {
-          initial_submission: new Date().toISOString(),
-          rating_context: 'initial'
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      trackErrorWithContext(new Error(`Failed to save initial rating: ${error.message}`), {
-        category: ErrorCategory.FEEDBACK,
-        subcategory: 'INITIAL_RATING',
+        context
+      });
+  } catch (error) {
+    console.error('Error saving rating:', error);
+    trackErrorWithContext(
+      error instanceof Error ? error : new Error('Failed to save rating'),
+      {
         severity: ErrorSeverity.HIGH,
+        category: 'FEEDBACK',
+        subcategory: 'SUBMIT',
         metadata: {
           mapId,
           rating,
-          session_id,
-          error: error.message
+          context
         }
-      });
-
-      await trackEvent({
-        event_type: ANALYTICS_EVENTS.FEEDBACK.INITIAL,
-        event_data: {
-          error: error.message,
-          mapId,
-          rating
-        }
-      });
-
-      throw error;
-    }
-
-    await trackEvent({
-      event_type: ANALYTICS_EVENTS.FEEDBACK.INITIAL,
-      event_data: {
-        mapId,
-        rating,
-        feedback_id: data.id
       }
-    });
-
-    return data;
-  } catch (error) {
-    console.error('Error saving initial rating:', error);
-    trackErrorWithContext(error instanceof Error ? error : new Error('Failed to save initial rating'), {
-      category: ErrorCategory.FEEDBACK,
-      subcategory: 'INITIAL_RATING',
-      severity: ErrorSeverity.HIGH,
-      metadata: {
-        mapId,
-        rating,
-        session_id,
-        error: error instanceof Error ? error.message : String(error)
-      }
-    });
-    throw error;
+    );
   }
-};
+}
 
-export const updateWithDetailedFeedback = async ({
-  feedbackId,
-  feedback,
-  painPoint,
-  organization,
-  email,
-  canFeature,
-  session_id
-}: DetailedFeedback) => {
+export async function updateWithDetailedFeedback({ mapId, feedback, canFeature }: UpdateFeedbackParams): Promise<void> {
   try {
-    const { data, error } = await supabase
+    await supabase
       .from('map_feedback')
       .update({
-        metadata: {
-          email,
-          painPoint,
-          organization,
-          canFeature,
-          last_updated: new Date().toISOString()
-        },
-        session_id,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', feedbackId)
-      .select()
-      .single();
-
-    if (error) {
-      trackErrorWithContext(new Error(`Failed to update feedback: ${error.message}`), {
-        category: ErrorCategory.FEEDBACK,
-        subcategory: 'DETAILED_FEEDBACK',
-        severity: ErrorSeverity.HIGH,
-        metadata: {
-          feedbackId,
-          session_id,
-          error: error.message
-        }
-      });
-
-      await trackEvent({
-        event_type: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
-        event_data: {
-          error: error.message,
-          feedbackId,
-          has_email: !!email,
-          has_pain_point: !!painPoint,
-          has_organization: !!organization,
-          can_feature: canFeature
-        }
-      });
-
-      throw error;
-    }
-
-    await trackEvent({
-      event_type: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
-      event_data: {
-        feedbackId,
-        has_email: !!email,
-        has_pain_point: !!painPoint,
-        has_organization: !!organization,
+        feedback,
         can_feature: canFeature
-      }
-    });
-
-    return data;
+      })
+      .eq('map_id', mapId);
   } catch (error) {
     console.error('Error updating feedback:', error);
-    trackErrorWithContext(error instanceof Error ? error : new Error('Failed to update feedback'), {
-      category: ErrorCategory.FEEDBACK,
-      subcategory: 'DETAILED_FEEDBACK',
-      severity: ErrorSeverity.HIGH,
-      metadata: {
-        feedbackId,
-        session_id,
-        error: error instanceof Error ? error.message : String(error)
+    trackErrorWithContext(
+      error instanceof Error ? error : new Error('Failed to update feedback'),
+      {
+        severity: ErrorSeverity.HIGH,
+        category: 'FEEDBACK',
+        subcategory: 'SUBMIT',
+        metadata: {
+          mapId,
+          hasFeedback: Boolean(feedback),
+          canFeature
+        }
       }
-    });
-    throw error;
+    );
   }
-};
+}

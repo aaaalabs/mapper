@@ -97,17 +97,19 @@ async function trackMapAnalytics(mapId: string, members: CommunityMember[]) {
   }
 }
 
-export async function trackMapDownload(mapId: string, membersCount: number) {
+export const trackMapDownload = async (mapId: string, membersCount: number) => {
   try {
     await trackEvent({
-      event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.COMPLETED,
-      event_data: { map_id: mapId, members_count: membersCount },
-      session_id: getSessionId()
+      event_name: ANALYTICS_EVENTS.MAP.DOWNLOADED,
+      event_data: {
+        map_id: mapId,
+        members_count: membersCount
+      }
     });
   } catch (error) {
-    console.error('Failed to track map download:', error);
+    console.error('Error tracking map download:', error);
   }
-}
+};
 
 export async function trackMapShare(mapId: string) {
   try {
@@ -176,7 +178,7 @@ export async function createMap({
   members, 
   center, 
   zoom
-}: Omit<CreateMapInput, 'description'>): Promise<SavedMap> {
+}: CreateMapInput): Promise<SavedMap> {
   // Ensure settings are properly merged with defaults
   const mergedSettings = {
     ...defaultMapSettings,
@@ -195,30 +197,44 @@ export async function createMap({
     },
   };
 
+  // Prepare map data - exclude session_id since it's not in the schema
+  const mapData = {
+    name,
+    settings: mergedSettings,
+    members: members || [],
+    center: center || [0, 0],
+    zoom: zoom || 2,
+    created_at: new Date().toISOString()
+  };
+
+  // Insert map data
   const { data: map, error } = await supabase
     .from('maps')
-    .insert({
-      name,
-      settings: mergedSettings,
-      members,
-      center,
-      zoom
-    })
-    .select()
+    .insert(mapData)
+    .select('*')
     .single();
 
   if (error) {
-    throw new Error(`Failed to create map: ${error.message}`);
+    console.error('Map creation error:', { error, mapData });
+    throw new MapError(`Failed to create map: ${error.message}`, 'CREATION_FAILED');
   }
 
   if (!map) {
-    throw new MapError('Map creation failed', 'CREATION_FAILED');
+    console.error('Map creation returned no data:', { mapData });
+    throw new MapError('Map creation failed: No map data returned', 'CREATION_FAILED');
   }
 
-  // Track event creation
+  // Track map creation with session ID
+  const sessionId = getSessionId();
   await trackEvent({
-    event_name: ANALYTICS_EVENTS.MAP_CREATION.CREATED,
-    event_data: { map_id: map.id }
+    event_name: ANALYTICS_EVENTS.MAP.CREATED,
+    event_data: {
+      map_id: map.id,
+      member_count: members?.length || 0,
+      has_center: !!center,
+      zoom_level: zoom,
+      session_id: sessionId
+    }
   });
 
   return map;

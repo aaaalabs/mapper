@@ -114,7 +114,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
     
     try {
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.STARTED,
+        event_name: ANALYTICS_EVENTS.MAP.CREATION.STARTED,
         event_data: { filename: file.name, fileSize: file.size }
       });
 
@@ -123,7 +123,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
         setUploadSuccess(true);
         
         await trackEvent({
-          event_name: ANALYTICS_EVENTS.MAP_CREATION.COMPLETED,
+          event_name: ANALYTICS_EVENTS.MAP.CREATION.COMPLETED,
           event_data: { filename: file.name, fileSize: file.size }
         });
       }
@@ -135,9 +135,22 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
       });
       
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_CREATION.ERROR,
+        event_name: ANALYTICS_EVENTS.MAP.CREATION.ERROR,
         event_data: { error: errorMessage }
       });
+
+      await trackErrorWithContext(
+        err instanceof Error ? err : new Error(errorMessage),
+        {
+          category: 'MAP',
+          subcategory: 'FILE_UPLOAD',
+          severity: ErrorSeverity.HIGH,
+          metadata: {
+            fileSize: file.size.toString(),
+            fileName: file.name
+          }
+        }
+      );
     } finally {
       setIsUploading(false);
     }
@@ -165,33 +178,31 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
       const isValid = await validateFile(file);
       if (!isValid) {
         trackErrorWithContext(new Error('Invalid file format'), {
-          category: 'USER_INPUT',
+          category: 'MAP',
           subcategory: 'FILE_UPLOAD',
           severity: ErrorSeverity.LOW,
           metadata: {
-            filename: file.name,
-            fileSize: file.size,
-            fileType: file.type
+            fileSize: file.size.toString(),
+            fileName: file.name
           }
         });
         return;
       }
 
-      const processedFile = await processFile(file);
-      onFileSelect(processedFile);
+      await processFile(file);
     } catch (err) {
-      trackErrorWithContext(err instanceof Error ? err : new Error('File upload failed'), {
-        category: 'USER_INPUT',
-        subcategory: 'FILE_UPLOAD',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: {
-          filename: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-          error: err instanceof Error ? err.message : String(err)
+      await trackErrorWithContext(
+        err instanceof Error ? err : new Error('Unknown error during file upload'),
+        {
+          category: 'MAP',
+          subcategory: 'FILE_UPLOAD',
+          severity: ErrorSeverity.HIGH,
+          metadata: {
+            fileSize: file.size.toString(),
+            fileName: file.name
+          }
         }
-      });
-      throw err;
+      );
     }
   };
 

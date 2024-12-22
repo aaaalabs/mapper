@@ -12,7 +12,12 @@ export const ANALYTICS_EVENTS = {
     VIEWED: 'map.viewed',
     SHARED: 'map.shared',
     DOWNLOADED: 'map.downloaded',
-    DELETED: 'map.deleted'
+    DELETED: 'map.deleted',
+    CREATION: {
+      STARTED: 'map.creation.started',
+      COMPLETED: 'map.creation.completed',
+      ERROR: 'map.creation.error'
+    }
   },
   USER: {
     SESSION_START: 'user.session_start',
@@ -55,7 +60,7 @@ export enum ErrorCategory {
 }
 
 export interface AnalyticsEvent {
-  event_type: string;
+  event_name: string;
   event_data?: Record<string, any>;
   feature_metadata?: Record<string, any>;
   error_type?: string;
@@ -97,7 +102,7 @@ export const trackEvent = async (event: AnalyticsEvent) => {
   
   try {
     const { error } = await supabase.from('map_analytics_events').insert({
-      event_type: event.event_type,
+      event_name: event.event_name,
       event_data: event.event_data || {},
       feature_metadata: event.feature_metadata,
       error_type: event.error_type,
@@ -121,7 +126,7 @@ export const trackEvent = async (event: AnalyticsEvent) => {
 export const trackErrorWithContext = async (error: Error, context: ErrorContext) => {
   try {
     await trackEvent({
-      event_type: 'error',
+      event_name: 'error',
       event_data: {
         message: error.message,
         stack: error.stack,

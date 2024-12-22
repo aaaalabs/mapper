@@ -18,7 +18,7 @@ import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { MapSettings } from '../../types/mapSettings';
 import { supabase } from '../../lib/supabase';
-import { trackErrorWithContext, ErrorSeverity } from '../../services/errorTracking';
+import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from '../../services/errorTracking';
 
 interface QuickUploadProps {
   onMapCreated: (mapId: string, mapName: string, shareLink: string) => void;
@@ -65,7 +65,6 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   const [showFormatGuide, setShowFormatGuide] = useState(false);
   const [uploadStep, setUploadStep] = useState<'initial' | 'preview' | 'success'>('initial');
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [mapName, setMapName] = useState<string>('My Community Map');
   const [mapSettings, setMapSettings] = useState<MapSettings>({
@@ -137,8 +136,8 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       const newCenter = calculateMapCenter(data);
       if (!newCenter) {
         trackErrorWithContext(new Error('Failed to calculate map center'), {
-          category: 'MAP_GENERATION',
-          subcategory: 'GEOCODING',
+          category: ErrorCategory.GEOCODING,
+          subcategory: 'COORDINATE_LOOKUP',
           severity: ErrorSeverity.HIGH,
           metadata: {
             fileSize: file.size,
@@ -153,20 +152,53 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       setCenter(newCenter);
       setUploadStep('preview');
 
-      // Create map in database
-      const { id: mapId, shareLink } = await createMap({
-        name: mapName,
-        data,
-        settings: mapSettings
+      // Track map creation start
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP.CREATION.STARTED,
+        event_data: {
+          member_count: data.length,
+          has_coordinates: data.some(d => d.latitude && d.longitude)
+        }
       });
 
-      setCurrentMapId(mapId);
-      onMapCreated(mapId, mapName, shareLink);
+      // Create map in database
+      try {
+        const createdMap = await createMap({
+          name: mapName,
+          settings: mapSettings,
+          members: data,
+          center: newCenter,
+          zoom: 12
+        });
 
+        if (!createdMap?.id) {
+          throw new Error('Map creation failed: No map ID returned');
+        }
+
+        setCurrentMapId(createdMap.id);
+        onMapCreated(createdMap.id, mapName, `${window.location.origin}/map/${createdMap.id}`);
+
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP.CREATION.COMPLETED,
+          event_data: {
+            map_id: createdMap.id,
+            member_count: data.length
+          }
+        });
+      } catch (error) {
+        console.error('Map creation error:', error);
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP.CREATION.ERROR,
+          event_data: {
+            error: error instanceof Error ? error.message : String(error)
+          }
+        });
+        throw error; // Re-throw to be caught by outer catch block
+      }
     } catch (err) {
       trackErrorWithContext(err instanceof Error ? err : new Error('Map generation failed'), {
-        category: 'MAP_GENERATION',
-        subcategory: 'PROCESSING',
+        category: ErrorCategory.MAP,
+        subcategory: 'CREATE',
         severity: ErrorSeverity.HIGH,
         metadata: {
           fileName: file.name,
@@ -210,8 +242,12 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
       try {
         setIsLoading(true);
         
+        // First transition to success step
+        setUploadStep('success');
+        
+        // Then track the event and generate the map
         await trackEvent({
-          event_name: ANALYTICS_EVENTS.MAP_DOWNLOAD.STARTED,
+          event_name: ANALYTICS_EVENTS.MAP.DOWNLOADED,
           event_data: { map_id: currentMapId, members_count: members.length }
         });
 
@@ -243,18 +279,19 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
           zoom: settings.zoom
         });
         const html = await generateStandaloneHtml(members, center || [0, 0], mapSettingsToOptions(mapSettings));
-        downloadHtmlFile(html, 'community-map.html');
-
+        
         // Track successful download
         if (currentMapId) {
           await trackMapDownload(currentMapId, members.length);
         }
-        
-        setUploadStep('success');
-        setShowFeedback(true);
+
+        // Finally download the file
+        downloadHtmlFile(html, 'community-map.html');
       } catch (error) {
         console.error('Error downloading map:', error);
         setError('Failed to download map. Please try again.');
+        // Reset to preview step if there's an error
+        setUploadStep('preview');
       } finally {
         setIsLoading(false);
       }
@@ -262,17 +299,24 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
   };
 
   const handleShare = async () => {
-    if (!currentMapId) return;
+    if (!currentMapId) {
+      console.error('No map ID available for sharing');
+      return;
+    }
     
     try {
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_SHARING.INITIATED,
-        event_data: { map_id: currentMapId, members_count: members.length }
+        event_name: ANALYTICS_EVENTS.MAP.SHARED,
+        event_data: { 
+          map_id: currentMapId, 
+          members_count: members.length 
+        }
       });
       
       setShowShare(true);
     } catch (error) {
       console.error('Failed to open share modal:', error);
+      setError('Failed to open share dialog. Please try again.');
     }
   };
 
@@ -281,7 +325,6 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
     setCenter(null);
     setUploadStep('initial');
     setCurrentMapId(null);
-    setShowFeedback(false);
     setShowShare(false);
     setError(null);
     setMapName('My Community Map');
@@ -445,6 +488,15 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
           />
         )}
       </Overlay>
+
+      <Overlay isOpen={false} onClose={() => {}}>
+        <OverlayContent>
+          <FeedbackForm
+            mapId={currentMapId || ''}
+            onClose={() => {}}
+          />
+        </OverlayContent>
+      </Overlay>
     </section>
   );
 
@@ -554,36 +606,36 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
 
     if (uploadStep === 'success') {
       return (
-        <div className="text-center space-y-6">
+        <div className="text-center space-y-6 max-w-2xl mx-auto">
           <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <div>
             <h3 className="text-xl font-semibold mb-2 text-primary dark:text-dark-primary">Your Map is Ready!</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-gray-600 dark:text-gray-400">
               Your map has been downloaded and is ready to be shared.
             </p>
           </div>
           
           {/* Feedback Form */}
           {currentMapId && (
-            <div className="mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+              <h4 className="text-lg font-semibold mb-4 text-primary dark:text-dark-primary">
+                How was your experience?
+              </h4>
               <FeedbackForm 
                 mapId={currentMapId}
-                onClose={() => {
-                  setShowFeedback(false);
-                  handleReset();
-                }}
+                onClose={handleReset}
               />
             </div>
           )}
 
           {/* Share and Reset Buttons */}
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
             <Button 
               variant="primary"
               onClick={handleShare}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Share2 className="w-4 h-4" />
               Share Map
@@ -591,6 +643,7 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
             <Button 
               variant="outline"
               onClick={handleReset}
+              className="w-full sm:w-auto"
             >
               Create Another Map
             </Button>

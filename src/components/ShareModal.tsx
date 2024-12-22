@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Dialog } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
 import { updateMapNameVisibility, getMap } from '../services/mapService';
 import { supabase } from '../config/supabase';
+import { FeedbackForm } from './FeedbackForm';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -16,8 +16,8 @@ interface ShareModalProps {
 export function ShareModal({ isOpen, onClose, mapId, initialMapName }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
-  const [showName, setShowName] = useState(true); // Default to true
   const [mapName, setMapName] = useState<string>(initialMapName || '');
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const shareUrl = `${window.location.origin}/map/${mapId}`;
   const embedCode = `<iframe src="${window.location.origin}/embed/${mapId}" width="100%" height="500" frameborder="0"></iframe>`;
@@ -28,7 +28,6 @@ export function ShareModal({ isOpen, onClose, mapId, initialMapName }: ShareModa
       
       try {
         const mapData = await getMap(mapId);
-        setShowName(mapData.settings?.customization?.showName ?? true);
         setMapName(mapData.name || initialMapName || '');
       } catch (error) {
         console.error('Failed to load map data:', error);
@@ -50,13 +49,8 @@ export function ShareModal({ isOpen, onClose, mapId, initialMapName }: ShareModa
             filter: `id=eq.${mapId}`
           },
           (payload) => {
-            // Update the map name if it changed
-            if (payload.new.name) {
+            if (payload.new) {
               setMapName(payload.new.name);
-            }
-            // Update show name setting if it changed
-            if (payload.new.settings?.customization?.showName !== undefined) {
-              setShowName(payload.new.settings.customization.showName);
             }
           }
         )
@@ -68,95 +62,90 @@ export function ShareModal({ isOpen, onClose, mapId, initialMapName }: ShareModa
     }
   }, [isOpen, mapId, initialMapName]);
 
-  const handleShowNameChange = async (checked: boolean) => {
-    if (mapId === 'demo') {
-      setShowName(checked);
-      return;
-    }
-
-    try {
-      await updateMapNameVisibility(mapId, checked);
-      setShowName(checked);
-    } catch (error) {
-      console.error('Failed to update map name visibility:', error);
-      // Reset checkbox if update failed
-      setShowName(!checked);
-    }
-  };
-
-  const copyShareLink = async () => {
+  const handleCopyClick = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      
+
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_INTERACTION.SHARE,
-        event_data: { map_id: mapId, action: 'copy_link' }
+        event_name: ANALYTICS_EVENTS.INTERACTION.BUTTON_CLICK,
+        event_data: { 
+          action: 'copy_share_url',
+          map_id: mapId
+        }
       });
-    } catch (err) {
-      console.error('Failed to copy share link:', err);
+    } catch (error) {
+      console.error('Failed to copy URL:', error);
     }
   };
 
-  const copyEmbedCode = async () => {
+  const handleEmbedCopyClick = async () => {
     try {
       await navigator.clipboard.writeText(embedCode);
       setEmbedCopied(true);
       setTimeout(() => setEmbedCopied(false), 2000);
 
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.MAP_INTERACTION.SHARE,
-        event_data: { map_id: mapId, action: 'copy_embed' }
+        event_name: ANALYTICS_EVENTS.INTERACTION.BUTTON_CLICK,
+        event_data: { 
+          action: 'copy_embed_code',
+          map_id: mapId
+        }
       });
-    } catch (err) {
-      console.error('Failed to copy embed code:', err);
+    } catch (error) {
+      console.error('Failed to copy embed code:', error);
     }
   };
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose}
-      title={`Share ${mapName ? `"${mapName}"` : ''} Map`}
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Share Your Map">
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            Share Link
-          </label>
+          <h3 className="text-lg font-medium mb-2 text-primary dark:text-dark-primary">Share Link</h3>
           <div className="flex gap-2">
             <input
               type="text"
               value={shareUrl}
               readOnly
-              className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-800 text-sm"
             />
-            <Button onClick={copyShareLink}>
+            <Button onClick={handleCopyClick} variant="outline">
               {copied ? 'Copied!' : 'Copy'}
             </Button>
           </div>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Share this link with others to let them view your map
-          </p>
         </div>
 
-        <div className="pt-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            Embed Code
-          </label>
+        <div>
+          <h3 className="text-lg font-medium mb-2 text-primary dark:text-dark-primary">Embed Code</h3>
           <div className="flex gap-2">
-            <textarea
+            <input
+              type="text"
               value={embedCode}
               readOnly
-              rows={3}
-              className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-800 text-sm font-mono"
             />
-            <Button onClick={copyEmbedCode}>
+            <Button onClick={handleEmbedCopyClick} variant="outline">
               {embedCopied ? 'Copied!' : 'Copy'}
             </Button>
           </div>
         </div>
+
+        {!showFeedback && (
+          <div className="pt-4">
+            <Button
+              onClick={() => setShowFeedback(true)}
+              variant="outline"
+              className="w-full"
+            >
+              Share Your Feedback
+            </Button>
+          </div>
+        )}
+
+        {showFeedback && mapId && (
+          <FeedbackForm mapId={mapId} onClose={() => setShowFeedback(false)} />
+        )}
       </div>
     </Modal>
   );

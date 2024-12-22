@@ -29,6 +29,8 @@ export const adminStyles = {
   settingHeader: 'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4',
   settingDescription: 'text-sm text-muted-foreground',
   savingIndicator: 'fixed bottom-safe right-4 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-lg rounded-lg p-2 flex items-center justify-center space-x-2 text-sm text-muted-foreground z-50',
+  loading: "flex items-center justify-center p-8 text-muted-foreground",
+  error: "flex items-center justify-center p-8 text-red-500",
 
   // Form styles
   form: {

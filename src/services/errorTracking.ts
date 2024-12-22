@@ -5,40 +5,32 @@ import { captureConsoleError } from '../config/sentry';
 
 // Error severity levels for better categorization
 export enum ErrorSeverity {
-  LOW = 'low',        // Minor UI glitches, non-critical features
-  MEDIUM = 'medium',  // User experience affected but functionality intact
-  HIGH = 'high',      // Critical functionality broken
-  CRITICAL = 'critical' // System-wide failures
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
 }
 
 // Error categories for better organization
-export type ErrorCategory = 
-  | 'AUTH'
-  | 'SESSION'
-  | 'PAYMENT'
-  | 'MAP'
-  | 'USER'
-  | 'SYSTEM'
-  | 'API'
-  | 'DATABASE';
+export enum ErrorCategory {
+  MAP = 'MAP',
+  ANALYTICS = 'ANALYTICS',
+  PAYMENT = 'PAYMENT',
+  GEOCODING = 'GEOCODING',
+  GENERAL = 'GENERAL'
+}
 
 // Error subcategories for specific error types
-export type ErrorSubcategory<T extends ErrorCategory> = T extends 'AUTH' 
-  ? 'SIGN_IN' | 'SIGN_OUT' | 'SESSION' | 'ADMIN_CHECK'
-  : T extends 'SESSION'
-  ? 'CREATION' | 'UPDATE' | 'FETCH' | 'CLEANUP'
+export type ErrorSubcategory<T extends ErrorCategory> = T extends 'MAP' 
+  ? 'CREATE' | 'UPDATE' | 'DELETE' | 'SHARE' | 'FEEDBACK'
+  : T extends 'ANALYTICS'
+  ? 'TRACK_EVENT' | 'TRACK_PAGEVIEW'
   : T extends 'PAYMENT'
   ? 'INITIATE' | 'PROCESS' | 'VERIFY' | 'REFUND'
-  : T extends 'MAP'
-  ? 'CREATE' | 'UPDATE' | 'DELETE' | 'SHARE'
-  : T extends 'USER'
-  ? 'PROFILE' | 'PREFERENCES' | 'ACTIVITY'
-  : T extends 'SYSTEM'
-  ? 'STARTUP' | 'SHUTDOWN' | 'MAINTENANCE'
-  : T extends 'API'
-  ? 'REQUEST' | 'RESPONSE' | 'TIMEOUT'
-  : T extends 'DATABASE'
-  ? 'QUERY' | 'CONNECTION' | 'MIGRATION'
+  : T extends 'GEOCODING'
+  ? 'ADDRESS_LOOKUP' | 'COORDINATE_LOOKUP'
+  : T extends 'GENERAL'
+  ? 'UNKNOWN' | 'NETWORK_ERROR'
   : never;
 
 // Convert ErrorSeverity to Sentry Level
@@ -67,7 +59,9 @@ export interface ErrorMetadata {
   requestId?: string;
   component?: string;
   feature?: string;
-  [key: string]: string | undefined;
+  rating?: number;
+  hasEmail?: boolean;
+  [key: string]: string | number | boolean | undefined;
 }
 
 // Error context interface
@@ -75,14 +69,7 @@ export interface ErrorContext {
   category: ErrorCategory;
   subcategory?: string;
   severity: ErrorSeverity;
-  componentName?: string;
-  action?: string;
-  userId?: string;
-  metadata?: ErrorMetadata;
-  recoveryAction?: {
-    type: 'retry' | 'fallback' | 'reset' | 'ignore';
-    description: string;
-  };
+  metadata?: Record<string, any>;
 }
 
 // Error data interface
@@ -95,14 +82,7 @@ export interface ErrorData {
   category: ErrorCategory;
   subcategory?: string;
   severity: ErrorSeverity;
-  componentName?: string;
-  action?: string;
-  userId?: string;
-  metadata: ErrorMetadata;
-  recoveryAction?: {
-    type: 'retry' | 'fallback' | 'reset' | 'ignore';
-    description: string;
-  };
+  metadata: Record<string, any>;
   url: string;
   userAgent: string;
   timestamp: string;
@@ -125,16 +105,12 @@ export async function trackErrorWithContext(
       category: context.category,
       subcategory: context.subcategory,
       severity: context.severity,
-      componentName: context.componentName,
-      action: context.action,
-      userId: context.userId,
       metadata: {
         ...context.metadata,
         timestamp: new Date().toISOString(),
         url: window.location.href,
         userAgent: navigator.userAgent
       },
-      recoveryAction: context.recoveryAction,
       url: window.location.href,
       userAgent: navigator.userAgent,
       timestamp: new Date().toISOString()
@@ -146,13 +122,10 @@ export async function trackErrorWithContext(
       scope.setTags({
         category: context.category,
         subcategory: context.subcategory,
-        component: context.componentName,
         source: 'error-tracking'
       });
       scope.setExtras({
-        action: context.action,
-        metadata: context.metadata,
-        recoveryAction: context.recoveryAction
+        metadata: context.metadata
       });
       
       // Capture as exception for better stack traces
@@ -161,7 +134,7 @@ export async function trackErrorWithContext(
 
     // Also track in analytics for non-Sentry tracking
     await trackEvent({
-      event_type: ANALYTICS_EVENTS.SYSTEM.ERROR,
+      event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
       event_data: errorData,
       session_id: context.metadata?.sessionId
     });
@@ -224,8 +197,7 @@ export function withErrorTracking<T>(
     try {
       scope.setTags({
         category: context.category,
-        subcategory: context.subcategory,
-        component: context.componentName
+        subcategory: context.subcategory
       });
       return await fn();
     } catch (error) {
@@ -245,7 +217,7 @@ export function createErrorContext<T extends ErrorCategory>(
   category: T,
   subcategory: ErrorSubcategory<T>,
   severity: ErrorSeverity,
-  metadata?: ErrorMetadata
+  metadata?: Record<string, any>
 ): ErrorContext {
   return {
     category,
@@ -257,3 +229,19 @@ export function createErrorContext<T extends ErrorCategory>(
     }
   };
 }
+
+export const trackSystemError = async (error: Error, context: ErrorContext) => {
+  try {
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
+      event_data: {
+        message: error.message,
+        stack: error.stack,
+        context,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error('Failed to track system error:', err);
+  }
+};

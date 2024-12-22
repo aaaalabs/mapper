@@ -132,26 +132,35 @@ export interface Database {
         Row: {
           id: string;
           created_at: string;
-          event_type: string;
-          event_data: Record<string, any>;
           session_id: string | null;
-          user_id: string | null;
+          event_name: string;
+          event_data: Record<string, any>;
+          feature_metadata?: Record<string, any>;
+          error_type?: string;
+          error_message?: string;
+          performance_data?: Record<string, any>;
         };
         Insert: {
           id?: string;
           created_at?: string;
-          event_type: string;
-          event_data?: Record<string, any>;
           session_id?: string | null;
-          user_id?: string | null;
+          event_name: string;
+          event_data?: Record<string, any>;
+          feature_metadata?: Record<string, any>;
+          error_type?: string;
+          error_message?: string;
+          performance_data?: Record<string, any>;
         };
         Update: {
           id?: string;
           created_at?: string;
-          event_type?: string;
-          event_data?: Record<string, any>;
           session_id?: string | null;
-          user_id?: string | null;
+          event_name?: string;
+          event_data?: Record<string, any>;
+          feature_metadata?: Record<string, any>;
+          error_type?: string;
+          error_message?: string;
+          performance_data?: Record<string, any>;
         };
       };
       map_settings: {

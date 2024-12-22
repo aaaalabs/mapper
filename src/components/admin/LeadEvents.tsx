@@ -12,21 +12,13 @@ interface LeadEventsProps {
 
 type Event = {
   id: string;
-  session_id: string;
-  event_type: string;
+  session_id: string | null;
+  event_name: string;
   event_data: Record<string, any>;
   created_at: string;
   path?: string;
   user_id?: string | null;
 };
-
-const eventTypeColors = {
-  'page_view': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  'feature_used': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  'conversion': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'error': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  'default': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-} as const;
 
 export function LeadEvents({ sessionId, isOpen, onClose }: LeadEventsProps) {
   const [events, setEvents] = useState<Event[]>([]);
@@ -53,7 +45,7 @@ export function LeadEvents({ sessionId, isOpen, onClose }: LeadEventsProps) {
       // Cast the data to ensure it matches our Event type
       const typedEvents = (data || []).map(event => ({
         ...event,
-        session_id: event.session_id || '',
+        session_id: event.session_id || null,
         path: event.path || undefined
       })) as Event[];
       
@@ -66,8 +58,12 @@ export function LeadEvents({ sessionId, isOpen, onClose }: LeadEventsProps) {
     }
   };
 
-  const getEventColor = (eventType: string) => {
-    return eventTypeColors[eventType as keyof typeof eventTypeColors] || eventTypeColors.default;
+  const getEventColor = (eventName: string) => {
+    const name = eventName.toLowerCase();
+    if (name.includes('error')) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+    if (name.includes('success')) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+    if (name.includes('warning')) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
   };
 
   const formatEventData = (data: any) => {
@@ -113,8 +109,8 @@ export function LeadEvents({ sessionId, isOpen, onClose }: LeadEventsProps) {
                 className="p-4 border rounded-lg bg-card"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <Badge className={getEventColor(event.event_type)}>
-                    {event.event_type}
+                  <Badge className={getEventColor(event.event_name)}>
+                    {event.event_name}
                   </Badge>
                   <span className="text-sm text-muted-foreground">
                     {new Date(event.created_at).toLocaleString()}

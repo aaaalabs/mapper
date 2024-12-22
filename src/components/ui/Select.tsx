@@ -28,10 +28,13 @@ export function Select({
   return (
     <select
       className={cn(
-        'h-9 w-full rounded-md border border-input bg-background px-3 py-1',
-        'text-sm shadow-sm transition-colors',
-        'focus:outline-none focus:ring-1 focus:ring-ring',
+        'h-9 w-full rounded-md border px-3 py-1 shadow-sm',
+        'bg-white dark:bg-gray-800',
+        'text-gray-900 dark:text-gray-100',
+        'border-gray-300 dark:border-gray-700',
+        'focus:outline-none focus:ring-1 focus:ring-primary',
         'disabled:cursor-not-allowed disabled:opacity-50',
+        '[&>option]:bg-white dark:[&>option]:bg-gray-800',
         className
       )}
       value={value}

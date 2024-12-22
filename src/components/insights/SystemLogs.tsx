@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 interface LogEntry {
   id: string;
   timestamp: string;
-  event_type: string;
+  event_name: string;
   user_id?: string;
   details: string;
   severity: 'info' | 'warning' | 'error';
@@ -45,11 +45,12 @@ export function SystemLogs({ logs, isLoading }: SystemLogsProps) {
   if (isLoading) return <LoadingSkeleton />;
 
   const filteredLogs = logs.filter(log => {
+    const searchTermLower = searchTerm.toLowerCase();
     const matchesSeverity = filter === 'all' || log.severity === filter;
     const matchesSearch = searchTerm === '' || 
-      log.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.event_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.component.toLowerCase().includes(searchTerm.toLowerCase());
+      log.event_name.toLowerCase().includes(searchTermLower) ||
+      log.details.toLowerCase().includes(searchTermLower) ||
+      log.component.toLowerCase().includes(searchTermLower);
     return matchesSeverity && matchesSearch;
   });
 
@@ -106,7 +107,7 @@ export function SystemLogs({ logs, isLoading }: SystemLogsProps) {
                     </span>
                   </div>
                   <h4 className="mt-1 text-sm font-medium text-gray-900">
-                    {log.event_type}
+                    {log.event_name}
                   </h4>
                   <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap">
                     {log.details}

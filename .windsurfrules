@@ -125,6 +125,11 @@ mapper/
 [904] Use proper accessibility features for all components
 [905] Follow mobile-first approach for all component designs
 [906] Make sure that there is always a working dark mode variant with contrasting colors of the UI
+[907] Maintain color contrast in all UI states:
+- Light text on dark backgrounds, dark text on light backgrounds (≥4.5:1 ratio)
+- Preserve text/background contrast in all interactive states (hover, active, disabled)
+- Mirror color relationships in dark mode using CSS custom properties
+- Test all states in both modes before implementation
 
 # Documentation Guidelines
 [1001] Document all non-obvious code with inline comments

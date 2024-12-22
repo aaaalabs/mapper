@@ -35,7 +35,7 @@ export function OrderPage() {
 
         // Track order completion view
         await trackEvent({
-          event_type: ANALYTICS_EVENTS.ORDER.COMPLETION_VIEW,
+          event_name: ANALYTICS_EVENTS.ORDER.COMPLETION_VIEW,
           event_data: {
             service: 'data_extraction',
             skoolUid
@@ -60,6 +60,23 @@ export function OrderPage() {
 
     trackOrder();
   }, [email, name, navigate, skoolUid]);
+
+  useEffect(() => {
+    const trackPageView = async () => {
+      try {
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.ORDER.COMPLETION_VIEW,
+          event_data: {
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (err) {
+        console.error('Failed to track order completion view:', err);
+      }
+    };
+
+    trackPageView();
+  }, []);
 
   const handleContinueToBooking = () => {
     const bookingUrl = `https://voiceloop.fillout.com/t/rfGJsPbos6us?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&skool=${encodeURIComponent(skoolUid)}`;

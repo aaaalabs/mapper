@@ -1,3 +1,16 @@
+/**
+ * Button Component
+ * 
+ * Color Guidelines [Rule 907]:
+ * 1. Text color must maintain contrast ratio ≥4.5:1 with background in all states
+ * 2. Hover states must explicitly set text color to maintain contrast
+ * 3. Dark mode colors must be tested separately for contrast
+ * 4. Use CSS custom properties for consistent color relationships:
+ *    - Primary button: bg-primary → text-background
+ *    - Ghost/Outline: text-primary → hover:text-primary
+ *    - Destructive: bg-destructive → text-destructive-foreground
+ */
+
 import React from 'react';
 import { cn } from '../../utils/cn';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -22,23 +35,23 @@ export function Button({
   
   const variants = {
     primary: [
-      'bg-primary text-background hover:bg-secondary',
-      'dark:bg-background dark:text-primary dark:hover:bg-background-alt',
+      'bg-primary text-background hover:bg-secondary hover:text-background',
+      'dark:bg-dark-primary dark:text-dark-background dark:hover:bg-dark-secondary/80 dark:hover:text-dark-background',
       'border border-transparent'
     ].join(' '),
     ghost: [
-      'bg-transparent text-primary hover:bg-background-alt',
-      'dark:text-background dark:hover:bg-background-alt',
+      'bg-transparent text-primary hover:bg-background-alt hover:text-primary',
+      'dark:text-dark-primary dark:hover:bg-dark-background/20 dark:hover:text-dark-primary',
       'border border-transparent'
     ].join(' '),
     outline: [
-      'bg-transparent text-primary hover:bg-background-alt',
-      'dark:text-background dark:hover:bg-background-alt',
-      'border border-primary dark:border-background'
+      'bg-background text-primary border-primary hover:bg-background-alt hover:text-primary',
+      'dark:bg-dark-background dark:text-dark-primary dark:border-dark-primary dark:hover:bg-dark-primary/20 dark:hover:text-dark-primary',
+      'border'
     ].join(' '),
     destructive: [
-      'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-      'dark:bg-destructive dark:text-destructive-foreground dark:hover:bg-destructive/90',
+      'bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground',
+      'dark:bg-dark-destructive dark:text-dark-destructive-foreground dark:hover:bg-dark-destructive/80 dark:hover:text-dark-destructive-foreground',
       'border border-transparent'
     ].join(' ')
   };
