@@ -1,96 +1,116 @@
-import React from 'react';
+import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import {
-  ChartBarIcon,
-  UsersIcon,
-  Cog6ToothIcon as SettingsIcon,
-  ShieldCheckIcon as ShieldIcon,
-  FlagIcon,
-  ArrowLeftOnRectangleIcon as LogoutIcon
-} from '@heroicons/react/24/outline';
-import { useAuth } from '@/hooks/useAuth';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { Logo } from '@/components/ui/Logo';
 
-const navigation = [
-  { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
-  { name: 'User Management', href: '/admin/users', icon: UsersIcon },
-  { name: 'Moderation', href: '/admin/moderation', icon: FlagIcon },
-  { name: 'Security', href: '/admin/security', icon: ShieldIcon },
-  { name: 'Settings', href: '/admin/settings', icon: SettingsIcon },
-];
+const navItems = [
+  { path: '/admin', label: 'Settings' },
+  { path: '/admin/orders', label: 'Orders' },
+  { path: '/admin/leads', label: 'Leads' },
+  { path: '/admin/logs', label: 'Logs' },
+  { path: '/admin/content', label: 'Content' },
+  { path: '/admin/waitlist', label: 'Waitlist' },
+  { path: '/admin/feedback', label: 'Feedback' },
+  { path: '/admin/dashboard', label: 'Dashboard' },
+] as const;
 
 export function AdminLayout() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { signOut } = useAuth();
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        <div className="flex min-h-0 flex-1 flex-col border-r border-border bg-background-alt">
-          <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-            <div className="flex flex-shrink-0 items-center px-4">
-              <Link to="/admin" className="flex items-center gap-2">
-                <Logo className="h-8 w-8" />
-                <span className="font-semibold text-foreground">
-                  Admin Dashboard
-                </span>
-              </Link>
-            </div>
-            <nav className="mt-8 flex-1 space-y-1 px-2">
-              {navigation.map((item) => {
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                      'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors'
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        'h-5 w-5',
-                        isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-                      )}
-                      aria-hidden="true"
-                    />
-                    {item.name}
-                  </Link>
-                );
-              })}
-            </nav>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Admin Panel</h1>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMobileMenu}
+            aria-label="Toggle menu"
+            className="lg:hidden"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              {isMobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              )}
+            </svg>
+          </Button>
+        </div>
+      </header>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <nav
+        className={cn(
+          'fixed top-0 left-0 bottom-0 z-40 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0',
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="h-full flex flex-col">
+          {/* Logo/Header - Only visible on desktop */}
+          <div className="hidden lg:flex items-center h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Admin Panel</h1>
           </div>
-          <div className="flex flex-shrink-0 border-t border-border p-4">
-            <div className="flex w-full items-center justify-between">
-              <ThemeToggle />
-              <button
-                onClick={signOut}
-                className="group flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <LogoutIcon
-                  className="h-5 w-5 text-muted-foreground group-hover:text-foreground"
-                  aria-hidden="true"
-                />
-                Sign out
-              </button>
+
+          {/* Navigation Links */}
+          <div className="flex-1 overflow-y-auto py-4 px-3">
+            <div className="space-y-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={closeMobileMenu}
+                  className={cn(
+                    'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                    location.pathname === item.path
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-100'
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
-      </div>
-      <div className="flex flex-1 flex-col md:pl-64">
-        <main className="flex-1">
-          <div className="py-6">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-              <Outlet />
-            </div>
-          </div>
-        </main>
-      </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className={cn(
+        'transition-all duration-200 ease-in-out',
+        'lg:ml-64 min-h-screen',
+        'pt-16 lg:pt-0' // Account for mobile header
+      )}>
+        <div className="container mx-auto px-4 py-6">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 }

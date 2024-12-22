@@ -7,210 +7,136 @@ const generateUUID = () => {
 
 // Analytics event categories
 export const ANALYTICS_EVENTS = {
-  MAP_CREATION: {
-    STARTED: 'map_creation_started',
-    COMPLETED: 'map_creation_completed',
-    ERROR: 'map_creation_error',
-    CREATED: 'map_created'
+  MAP: {
+    CREATED: 'map.created',
+    VIEWED: 'map.viewed',
+    SHARED: 'map.shared',
+    DOWNLOADED: 'map.downloaded',
+    DELETED: 'map.deleted'
   },
-  MAP_DOWNLOAD: {
-    STARTED: 'map_download_started',
-    COMPLETED: 'map_download_completed',
-    ERROR: 'map_download_error'
+  USER: {
+    SESSION_START: 'user.session_start',
+    PAGE_VIEW: 'user.page_view',
+    FEATURE_USED: 'user.feature_used'
   },
-  MAP_SHARING: {
-    STARTED: 'map_sharing_started',
-    COMPLETED: 'map_sharing_completed',
-    ERROR: 'map_sharing_error',
-    INITIATED: 'map_sharing_initiated'
-  },
-  MAP_INTERACTION: {
-    VIEW: 'map_viewed',
-    EDIT: 'map_edited',
-    SHARE: 'map_shared',
-    DELETE: 'map_deleted',
-    ZOOM: 'map_zoomed',
-    PAN: 'map_panned',
-    MARKER_CLICK: 'marker_clicked',
-    PROFILE_LINK_CLICK: 'profile_link_clicked',
-    SETTINGS_UPDATED: 'map_settings_updated'
-  },
-  USER_ACTION: {
-    LOGIN: 'user_login',
-    SIGNUP: 'user_signup',
-    SETTINGS: 'settings_changed'
-  },
-  SYSTEM: {
-    ERROR: 'error',
-    PAGE_VIEW: 'page_view'
-  },
-  PAYMENT: {
-    INITIATED: 'payment_initiated',
-    COMPLETED: 'payment_completed',
-    FAILED: 'payment_failed',
-    CANCELLED: 'payment_cancelled',
-    ERROR: 'payment_error'
+  INTERACTION: {
+    BUTTON_CLICK: 'interaction.button_click',
+    FORM_SUBMIT: 'interaction.form_submit',
+    MODAL_OPEN: 'interaction.modal_open',
+    MODAL_CLOSE: 'interaction.modal_close'
   },
   BETA: {
-    SIGNUP: 'beta_signup'
+    SIGNUP: 'beta.signup',
+    WAITLIST: 'beta.waitlist'
   },
   ORDER: {
-    COMPLETION_VIEW: 'order_completion_view',
-    BOOKING_STARTED: 'order_booking_started',
-    BOOKING_COMPLETED: 'order_booking_completed'
+    COMPLETION_VIEW: 'order.completion_view',
+    BOOKING_STARTED: 'order.booking_started'
   },
   FEEDBACK: {
-    RATING: 'feedback_rating',
-    COMMENT: 'feedback_comment'
-  },
-  DATA_EXTRACTION: {
-    REQUEST: 'data_extraction_request',
-    COMPLETE: 'data_extraction_completed',
-    ERROR: 'data_extraction_error'
-  },
-  FEATURE: {
-    USED: 'feature_used',
-    ENABLED: 'feature_enabled',
-    DISABLED: 'feature_disabled',
-    CONFIGURED: 'feature_configured'
-  },
-  PERFORMANCE: {
-    METRIC: 'performance_metric'
+    INITIAL: 'feedback.initial',
+    COMMENT: 'feedback.comment'
   }
-} as const;
+};
 
-// Helper type to extract all event values
-type EventValues<T> = T extends { [key: string]: infer U }
-  ? U extends { [key: string]: infer V }
-    ? V extends string
-      ? V
-      : U extends string
-        ? U
-        : never
-    : never
-  : never;
-
-// Type for all possible event names
-export type EventNames = EventValues<typeof ANALYTICS_EVENTS>;
-
-// Analytics event interface
-export interface AnalyticsEvent {
-  event_name: EventNames;
-  event_data?: Record<string, any>;
-  session_id?: string;
-  timestamp?: string;
+export enum ErrorSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical'
 }
 
-// Get or create session ID
+export enum ErrorCategory {
+  MAP = 'MAP',
+  USER = 'USER',
+  FEEDBACK = 'FEEDBACK',
+  LEAD = 'LEAD',
+  SYSTEM = 'SYSTEM'
+}
+
+export interface AnalyticsEvent {
+  event_type: string;
+  event_data?: Record<string, any>;
+  feature_metadata?: Record<string, any>;
+  error_type?: string;
+  error_message?: string;
+  performance_data?: Record<string, any>;
+  session_id?: string;
+  anonymous_id?: string;
+}
+
+export interface ErrorContext {
+  category: ErrorCategory;
+  subcategory: string;
+  severity: ErrorSeverity;
+  metadata?: Record<string, any>;
+}
+
+// Check if current page is an admin page
+export const isAdminPage = () => {
+  return window.location.pathname.startsWith('/admin');
+};
+
+// Get or create a session ID
 export const getSessionId = (): string => {
-  let sessionId = localStorage.getItem('mapper_session_id');
+  // Don't track sessions on admin pages
+  if (isAdminPage()) return '';
+  
+  let sessionId = localStorage.getItem('session_id');
   if (!sessionId) {
     sessionId = generateUUID();
-    localStorage.setItem('mapper_session_id', sessionId);
+    localStorage.setItem('session_id', sessionId);
   }
   return sessionId;
 };
 
-export const trackEvent = async ({
-  event_name,
-  event_data = {},
-  session_id = getSessionId(),
-  timestamp = new Date().toISOString()
-}: AnalyticsEvent): Promise<boolean> => {
+// Track an analytics event
+export const trackEvent = async (event: AnalyticsEvent) => {
+  // Don't track events on admin pages
+  if (isAdminPage()) return;
+  
   try {
-    // Ensure event_name is not null or undefined
-    if (!event_name) {
-      console.error('Analytics error: event_name cannot be null or undefined');
-      return false;
-    }
-
-    const { data, error } = await supabase
-      .from('map_analytics_events')
-      .insert({
-        event_name,
-        session_id,
-        event_data: JSON.stringify(event_data),
-        timestamp
-      })
-      .select();
-
-    if (error) {
-      console.error('Analytics error:', error.message);
-      return false;
-    }
-
-    console.log('Analytics event tracked:', {
-      event_name,
-      event_data,
-      session_id,
-      timestamp,
-      response: data
+    const { error } = await supabase.from('map_analytics_events').insert({
+      event_type: event.event_type,
+      event_data: event.event_data || {},
+      feature_metadata: event.feature_metadata,
+      error_type: event.error_type,
+      error_message: event.error_message,
+      performance_data: event.performance_data,
+      session_id: event.session_id || getSessionId(),
+      anonymous_id: event.anonymous_id
     });
 
-    return true;
+    if (error) {
+      console.error('Error tracking event:', error);
+      throw error;
+    }
   } catch (error) {
-    console.error('Failed to track event:', error);
-    return false;
+    console.error('Error in trackEvent:', error);
+    // Don't throw here to prevent cascading failures
   }
 };
 
-// Helper function to track map interactions
-export const trackMapInteraction = async (action: keyof typeof ANALYTICS_EVENTS.MAP_INTERACTION, mapId?: string): Promise<boolean> => {
-  return trackEvent({
-    event_name: ANALYTICS_EVENTS.MAP_INTERACTION[action],
-    event_data: mapId ? { map_id: mapId } : undefined
-  });
-};
-
-// Helper function to track errors
-export const trackError = async (error: Error, context: string, type?: string): Promise<boolean> => {
-  return trackEvent({
-    event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
-    event_data: {
+// Track error with context
+export const trackErrorWithContext = async (error: Error, context: ErrorContext) => {
+  try {
+    await trackEvent({
+      event_type: 'error',
+      event_data: {
+        message: error.message,
+        stack: error.stack,
+        ...context.metadata
+      },
+      error_type: context.category,
       error_message: error.message,
-      error_stack: error.stack,
-      context,
-      type
-    }
-  });
-};
-
-// Helper function to track page views
-export const trackPageView = async (page: string, performanceData?: Record<string, any>): Promise<boolean> => {
-  return trackEvent({
-    event_name: ANALYTICS_EVENTS.SYSTEM.PAGE_VIEW,
-    event_data: {
-      page,
-      ...performanceData
-    }
-  });
-};
-
-// Helper function to track feature usage
-export const trackFeature = async (
-  featureName: string, 
-  action: keyof typeof ANALYTICS_EVENTS.FEATURE, 
-  event_data?: Record<string, any>
-): Promise<boolean> => {
-  return trackEvent({
-    event_name: ANALYTICS_EVENTS.FEATURE[action],
-    event_data: {
-      feature: featureName,
-      ...event_data
-    }
-  });
-};
-
-// Helper function to track performance
-export const trackPerformance = async (
-  metric: string,
-  data: Record<string, any>
-): Promise<boolean> => {
-  return trackEvent({
-    event_name: ANALYTICS_EVENTS.PERFORMANCE.METRIC,
-    event_data: {
-      metric,
-      ...data
-    }
-  });
+      feature_metadata: {
+        category: context.category,
+        subcategory: context.subcategory,
+        severity: context.severity
+      }
+    });
+  } catch (trackingError) {
+    console.error('Error in trackErrorWithContext:', trackingError);
+    // Don't throw here to prevent cascading failures
+  }
 };

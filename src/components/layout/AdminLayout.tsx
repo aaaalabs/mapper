@@ -9,18 +9,24 @@ import {
   ArrowLeftOnRectangleIcon as LogoutIcon,
   Bars3Icon,
   XMarkIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ShoppingCartIcon,
+  UserGroupIcon,
+  MapIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const navigation = [
-  { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
-  { name: 'Beta Waitlist', href: '/admin/waitlist', icon: UsersIcon },
-  { name: 'Logs', href: '/admin/logs', icon: DocumentTextIcon },
-  { name: 'Feedback', href: '/admin/feedback', icon: FeedbackIcon },
   { name: 'Settings', href: '/admin/settings', icon: SettingsIcon },
+  { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
+  { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
+  { name: 'Leads', href: '/admin/leads', icon: UserGroupIcon },
+  { name: 'Maps', href: '/admin/maps', icon: MapIcon },
+  { name: 'Waitlist', href: '/admin/waitlist', icon: UsersIcon },
+  { name: 'Feedback', href: '/admin/feedback', icon: FeedbackIcon },
+  { name: 'Logs', href: '/admin/logs', icon: DocumentTextIcon },
 ];
 
 export function AdminLayout() {

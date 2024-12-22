@@ -5,7 +5,8 @@ import {
   Outlet,
   Navigate,
   useRouteError,
-  isRouteErrorResponse
+  isRouteErrorResponse,
+  useNavigate
 } from 'react-router-dom';
 import { Navigation } from './components/layout/Navigation';
 import { LoginModal } from './components/auth/LoginModal';
@@ -21,13 +22,17 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { DashboardContent } from './components/insights/DashboardContent';
 import { BetaWaitlist } from './components/admin/BetaWaitlist';
-import { Feedback } from './components/admin/Feedback';
 import { AdminSettings } from './components/insights/AdminSettings';
 import { Logs } from './components/admin/Logs';
 import { useAuth } from './hooks/useAuth';
 import { XCircleIcon } from '@heroicons/react/24/outline';
-import { trackErrorWithContext, ErrorSeverity } from './services/errorTracking';
+import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from './services/errorTracking';
 import { usePerformanceTracking } from './hooks/usePerformanceTracking';
+import { Orders } from './components/admin/Orders';
+import { Leads } from './components/admin/Leads'; // Fixed Leads import to use named import
+import { ContentModeration } from './components/admin/ContentModeration';
+import { FeedbackDashboard } from './components/admin/FeedbackDashboard';
+import { Maps } from './components/admin/Maps';
 
 function RouteError() {
   const error = useRouteError();
@@ -37,12 +42,13 @@ function RouteError() {
     trackErrorWithContext(
       error instanceof Error ? error : new Error(isRouteError ? `${error.status} - ${error.statusText}` : 'Route Error'),
       {
-        category: 'UI',
+        category: 'SYSTEM' as ErrorCategory,
+        subcategory: 'ROUTING',
         severity: ErrorSeverity.HIGH,
         componentName: 'RouteError',
         action: 'route_error',
         metadata: {
-          status: isRouteError ? error.status : undefined,
+          status: isRouteError ? error.status?.toString() : undefined,
           statusText: isRouteError ? error.statusText : undefined,
           path: window.location.pathname,
           timestamp: new Date().toISOString()
@@ -80,20 +86,19 @@ function RouteError() {
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      navigate('/');
+    }
+  }, [isAdmin, loading, navigate]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent"></div>
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (!isAdmin) {
-    return <Navigate to="/admin/login" />;
-  }
-
-  return <>{children}</>;
+  return isAdmin ? <>{children}</> : null;
 };
 
 const AppLayout = () => {
@@ -117,13 +122,25 @@ const router = createBrowserRouter([
     element: <AppLayout />,
     errorElement: <RouteError />,
     children: [
-      { index: true, element: <HomePage /> },
-      { path: 'map/:id', element: <SharedMap /> },
-      { path: 'map/:id/embed', element: <EmbedMap /> },
-      { path: 'embed/:id', element: <EmbedMap /> },
-      { 
+      {
+        index: true,
+        element: <HomePage />
+      },
+      {
         path: 'insights',
         element: <Navigate to="/admin/analytics" replace />
+      },
+      {
+        path: 'shared/:id',
+        element: <SharedMap />
+      },
+      {
+        path: 'embed/:id',
+        element: <EmbedMap />
+      },
+      {
+        path: 'map/:id',
+        element: <SharedMap />
       }
     ]
   },
@@ -141,12 +158,17 @@ const router = createBrowserRouter([
     ),
     errorElement: <RouteError />,
     children: [
-      { index: true, element: <Navigate to="/admin/analytics" replace /> },
+      { index: true, element: <Navigate to="/admin/settings" replace /> },
+      { path: 'settings', element: <AdminSettings /> },
       { path: 'analytics', element: <DashboardContent /> },
-      { path: 'waitlist', element: <BetaWaitlist /> },
-      { path: 'feedback', element: <Feedback /> },
+      { path: 'orders', element: <Orders /> },
+      { path: 'leads', element: <Leads /> },
       { path: 'logs', element: <Logs /> },
-      { path: 'settings', element: <AdminSettings currentUserId="" isLoading={false} /> }
+      { path: 'content', element: <ContentModeration /> },
+      { path: 'waitlist', element: <BetaWaitlist /> },
+      { path: 'feedback', element: <FeedbackDashboard /> },
+      { path: 'dashboard', element: <DashboardContent /> },
+      { path: 'maps', element: <Maps /> }
     ]
   },
   {
@@ -164,14 +186,16 @@ function App() {
     // Global error handler for uncaught errors
     const handleUnhandledError = (event: ErrorEvent) => {
       trackErrorWithContext(event.error || new Error(event.message), {
-        category: 'SYSTEM',
+        category: 'SYSTEM' as ErrorCategory,
         subcategory: 'CRASH',
         severity: ErrorSeverity.HIGH,
         metadata: {
-          type: 'unhandled_error',
+          message: event.message,
           filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno
+          lineno: event.lineno?.toString(),
+          colno: event.colno?.toString(),
+          stack: event.error?.stack,
+          timestamp: new Date().toISOString()
         }
       });
     };
@@ -181,12 +205,13 @@ function App() {
       trackErrorWithContext(
         event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
         {
-          category: 'SYSTEM',
+          category: 'SYSTEM' as ErrorCategory,
           subcategory: 'CRASH',
           severity: ErrorSeverity.HIGH,
           metadata: {
             type: 'unhandled_rejection',
-            promise_id: event.promise['__zone_symbol__id']
+            error: String(event.reason),
+            timestamp: new Date().toISOString()
           }
         }
       );
@@ -194,13 +219,15 @@ function App() {
 
     // Global handler for network errors
     const handleNetworkError = () => {
-      trackErrorWithContext(new Error('Network connection lost'), {
-        category: 'NETWORK',
-        subcategory: 'OFFLINE',
+      const error = new Error('Network request failed');
+      trackErrorWithContext(error, {
+        category: 'SYSTEM' as ErrorCategory,
+        subcategory: 'NETWORK',
         severity: ErrorSeverity.HIGH,
+        componentName: 'App',
         metadata: {
-          type: 'connectivity',
-          online: navigator.onLine
+          online: navigator.onLine.toString(),
+          timestamp: new Date().toISOString()
         }
       });
     };

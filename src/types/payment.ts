@@ -1,31 +1,12 @@
-export interface Session {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  user_id?: string;
-  metadata?: Record<string, any>;
-  status: 'active' | 'expired' | 'completed';
-  expires_at?: string;
-}
+import { Database } from './supabase';
 
-export interface PaymentOrder {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  revolut_order_id: string;
-  merchant_order_ref: string;
-  amount: number;
-  currency: string;
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
-  session_id?: string;
-  user_id?: string;
-  metadata?: Record<string, any>;
-}
+export type Session = Database['public']['Tables']['map_sessions']['Row'];
+
+export type PaymentOrder = Database['public']['Tables']['map_payment_orders']['Row'];
 
 export interface CreatePaymentOrderDTO {
   amount: number;
   currency: string;
-  session_id?: string;
-  user_id?: string;
   metadata?: Record<string, any>;
+  session_id?: string;
 }

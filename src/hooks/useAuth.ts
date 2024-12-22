@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../config/supabase';
-import { ADMIN_EMAIL, isAdminUser, AUTH_ERRORS } from '../config/auth';
+import { ADMIN_EMAIL, AUTH_ERRORS } from '../config/auth';
 
 /**
  * Authentication hook for Mapper
@@ -17,10 +17,15 @@ export function useAuth() {
   const checkAdminStatus = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      setIsAdmin(isAdminUser(user?.email));
+      const isAdminUser = user?.email === ADMIN_EMAIL;
+      setIsAdmin(isAdminUser);
+      setIsAuthenticated(isAdminUser);
     } catch (error) {
       console.error('Error checking admin status:', error);
       setIsAdmin(false);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,56 +34,61 @@ export function useAuth() {
       throw new Error(AUTH_ERRORS.INVALID_CREDENTIALS);
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (error) {
-      console.error('Sign in error:', error);
+      if (error) throw error;
+
+      if (data?.user?.email !== ADMIN_EMAIL) {
+        await supabase.auth.signOut();
+        throw new Error(AUTH_ERRORS.INVALID_CREDENTIALS);
+      }
+
+      setIsAdmin(true);
+      setIsAuthenticated(true);
+    } catch (error) {
+      setIsAdmin(false);
+      setIsAuthenticated(false);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Sign out error:', error);
-      throw error;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } finally {
+      setIsAdmin(false);
+      setIsAuthenticated(false);
+      setLoading(false);
     }
-    setIsAuthenticated(false);
-    setIsAdmin(false);
   };
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const isUserAuthenticated = !!user;
-        setIsAuthenticated(isUserAuthenticated);
-        
-        if (isUserAuthenticated) {
-          await checkAdminStatus();
-        }
-      } catch (error) {
-        console.error('Auth check error:', error);
-        setIsAuthenticated(false);
-        setIsAdmin(false);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Initial session check
+    checkAdminStatus();
 
-    checkAuth();
-
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const isUserAuthenticated = !!session;
-      setIsAuthenticated(isUserAuthenticated);
-      
-      if (isUserAuthenticated) {
-        await checkAdminStatus();
-      } else {
+      if (event === 'SIGNED_IN') {
+        if (session?.user?.email === ADMIN_EMAIL) {
+          setIsAdmin(true);
+          setIsAuthenticated(true);
+        } else {
+          await supabase.auth.signOut();
+          setIsAdmin(false);
+          setIsAuthenticated(false);
+        }
+      } else if (event === 'SIGNED_OUT') {
         setIsAdmin(false);
+        setIsAuthenticated(false);
       }
       setLoading(false);
     });

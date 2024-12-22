@@ -1,8 +1,10 @@
 import axios from 'axios';
 import RevolutCheckout from '@revolut/checkout';
-import supabase from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import type { CreatePaymentOrderDTO, PaymentOrder } from '../types/payment';
+import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
+import type { Database } from '../types/supabase';
 
 // API client configuration
 const revolutApi = axios.create({
@@ -99,7 +101,7 @@ const getOrCreateAnonymousSession = async () => {
 };
 
 // Create payment order in both Supabase and Revolut
-export const createRevolutOrder = async (orderData: CreatePaymentOrderDTO): Promise<{ publicId: string; orderRef: string }> => {
+export const createRevolutOrder = async (orderData: CreatePaymentOrderDTO): Promise<{ publicId: string; orderRef: string; order: PaymentOrder }> => {
   try {
     // Ensure we have a session ID
     const sessionId = await getOrCreateAnonymousSession();
@@ -140,19 +142,20 @@ export const createRevolutOrder = async (orderData: CreatePaymentOrderDTO): Prom
         currency: orderData.currency,
         status: 'pending',
         session_id: sessionId, // Always include session ID
-        user_id: orderData.user_id || null,
-        metadata: orderData.metadata || null
+        metadata: orderData.metadata || {} // Change null to empty object to match type
       })
       .select()
       .single();
 
-    if (error) {
-      throw new Error(`Failed to create payment order: ${error.message}`);
+    if (error || !order) {
+      console.error('Failed to create order in Supabase:', error);
+      throw new Error('Failed to create payment order');
     }
 
     return {
       publicId: revolutResponse.data.public_id,
-      orderRef: merchantOrderRef
+      orderRef: merchantOrderRef,
+      order
     };
   } catch (error) {
     console.error('Error creating payment order:', error);
@@ -195,4 +198,149 @@ export const getOrderByRef = async (merchantOrderRef: string): Promise<PaymentOr
     console.error('Error fetching order:', error);
     throw error;
   }
+};
+
+type PaymentOrderUpdate = Database['public']['Tables']['map_payment_orders']['Update'];
+
+const getPaymentConfig = async () => {
+  const { data } = await supabase
+    .from('map_admin_settings')
+    .select('settings')
+    .single();
+
+  const settings = data?.settings || { paymentEnvironment: 'sandbox', enablePaymentLogging: true };
+  
+  const apiKey = settings.paymentEnvironment === 'sandbox' 
+    ? process.env.NEXT_PUBLIC_REVOLUT_SANDBOX_KEY 
+    : process.env.NEXT_PUBLIC_REVOLUT_PRODUCTION_KEY;
+
+  if (!apiKey) {
+    throw new Error(`Missing ${settings.paymentEnvironment} API key`);
+  }
+
+  return {
+    apiKey,
+    enableLogging: settings.enablePaymentLogging
+  };
+};
+
+export const createPaymentOrder = async (amount: number): Promise<string> => {
+  try {
+    const config = await getPaymentConfig();
+    
+    if (config.enableLogging) {
+      console.log('Creating payment order:', { 
+        amount, 
+        environment: config.apiKey.startsWith('sk_sandbox') ? 'sandbox' : 'production' 
+      });
+    }
+
+    // Generate a unique merchant order reference
+    const merchantOrderRef = `order_${uuidv4()}`;
+
+    // Convert amount to cents
+    const amountInCents = Math.round(amount * 100);
+
+    // Create order in Revolut
+    const revolutResponse = await revolutApi.post('/orders', {
+      amount: amountInCents,
+      currency: 'EUR', // Default currency for now
+      merchant_order_ext_ref: merchantOrderRef,
+      description: 'Data extraction session'
+    });
+
+    console.log('Revolut order created:', revolutResponse.data);
+
+    // Create order in Supabase
+    const { data: order, error } = await supabase
+      .from('map_payment_orders')
+      .insert({
+        revolut_order_id: revolutResponse.data.id,
+        merchant_order_ref: merchantOrderRef,
+        amount,
+        currency: 'EUR', // Default currency for now
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error || !order) {
+      console.error('Failed to create order in Supabase:', error);
+      throw new Error('Failed to create payment order');
+    }
+
+    return revolutResponse.data.public_id;
+  } catch (error) {
+    console.error('Error creating payment order:', error);
+    throw error;
+  }
+};
+
+const updatePaymentOrder = async (orderId: string, status: PaymentOrder['status'], metadata: Record<string, any>): Promise<PaymentOrder> => {
+  try {
+    const updateData: PaymentOrderUpdate = {
+      status,
+      metadata,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('map_payment_orders')
+      .update(updateData)
+      .eq('id', orderId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    await trackErrorWithContext(
+      error instanceof Error ? error : new Error('Failed to update payment order'),
+      {
+        category: 'PAYMENT',
+        subcategory: 'PROCESS',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          orderId,
+          status,
+          metadata: JSON.stringify(metadata)
+        }
+      }
+    );
+    throw error;
+  }
+};
+
+const getPaymentOrder = async (orderId: string): Promise<PaymentOrder | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('map_payment_orders')
+      .select()
+      .eq('id', orderId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    await trackErrorWithContext(
+      error instanceof Error ? error : new Error('Failed to get payment order'),
+      {
+        category: 'PAYMENT',
+        subcategory: 'FETCH',
+        severity: ErrorSeverity.MEDIUM,
+        metadata: { orderId }
+      }
+    );
+    throw error;
+  }
+};
+
+export const paymentService = {
+  createPaymentOrder,
+  updatePaymentOrder,
+  getPaymentOrder
 };

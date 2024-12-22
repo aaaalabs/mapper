@@ -10,12 +10,12 @@ interface PerformanceMetricEntry extends PerformanceEntry {
 }
 
 const PERFORMANCE_THRESHOLDS: Record<PerformanceMetric, number> = {
-  FP: 1000,    // First Paint
-  FCP: 1500,   // First Contentful Paint
-  LCP: 2500,   // Largest Contentful Paint
+  FP: 2000,    // First Paint - increased for map rendering
+  FCP: 2500,   // First Contentful Paint - increased for map rendering
+  LCP: 4000,   // Largest Contentful Paint - increased for map rendering
   FID: 100,    // First Input Delay
   CLS: 0.1,    // Cumulative Layout Shift
-  TTFB: 600    // Time to First Byte
+  TTFB: 800    // Time to First Byte - increased for Supabase queries
 };
 
 export function usePerformanceTracking() {
@@ -60,7 +60,7 @@ export function usePerformanceTracking() {
       // Track Long Tasks
       const longTaskObserver = new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
-          if (entry.duration > 50) { // 50ms threshold for long tasks
+          if (entry.duration > 100) { // Increased threshold for long tasks due to map operations
             trackErrorWithContext(
               new Error('Long task detected'),
               {
@@ -86,7 +86,7 @@ export function usePerformanceTracking() {
       // Track Navigation Timing
       const navObserver = new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
-          if (entry.duration > PERFORMANCE_THRESHOLDS.TTFB) {
+          if (entry.duration > PERFORMANCE_THRESHOLDS.TTFB * 1.5) { // Added buffer for navigation timing
             trackErrorWithContext(
               new Error('Slow navigation timing detected'),
               {

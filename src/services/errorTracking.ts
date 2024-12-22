@@ -161,8 +161,9 @@ export async function trackErrorWithContext(
 
     // Also track in analytics for non-Sentry tracking
     await trackEvent({
-      event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
-      event_data: errorData
+      event_type: ANALYTICS_EVENTS.SYSTEM.ERROR,
+      event_data: errorData,
+      session_id: context.metadata?.sessionId
     });
 
     return true;

@@ -1,289 +1,170 @@
 import { useState } from 'react';
-import { cn } from '../utils/cn';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from '../services/analytics';
+import { createLead } from '../services/leadService';
 import { saveInitialRating, updateWithDetailedFeedback } from '../services/feedbackService';
-import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
-import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
 
 interface FeedbackFormProps {
-  mapId: string;
   onClose: () => void;
+  mapId: string;
 }
 
-const PAIN_POINTS = [
-  'Upload issues',
-  'Visualization',
-  'Missing feature',
-  'Other'
-];
-
-const USE_CASES = [
-  'Business',
-  'Community',
-  'Education',
-  'Personal',
-  'Other'
-];
-
-export function FeedbackForm({ mapId, onClose }: FeedbackFormProps) {
+export function FeedbackForm({ onClose, mapId }: FeedbackFormProps) {
   const [rating, setRating] = useState<number | null>(null);
-  const [hoverRating, setHoverRating] = useState<number>(0);
-  const [painPoint, setPainPoint] = useState('');
-  const [useCase, setUseCase] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [canFeature, setCanFeature] = useState(false);
-  const [organization, setOrganization] = useState('');
   const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [feedbackId, setFeedbackId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [painPoint, setPainPoint] = useState('');
+  const [organization, setOrganization] = useState('');
+  const [canFeature, setCanFeature] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isPositiveRating = rating !== null && rating >= 4;
-
-  const handleRatingChange = async (newRating: number) => {
-    setRating(newRating);
-    await trackEvent({
-      event_name: ANALYTICS_EVENTS.FEEDBACK.RATING,
-      event_data: { rating: newRating, map_id: mapId, type: 'initial' }
-    });
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmitRating = async () => {
     if (!rating) return;
-    
-    setIsSubmitting(true);
-    setError('');
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      if (!feedbackId) {
-        const initialFeedback = await saveInitialRating({
-          mapId,
-          rating
-        });
-        setFeedbackId(initialFeedback.id);
-      }
+      const sessionId = localStorage.getItem('session_id');
+      
+      const feedbackData = await saveInitialRating({
+        mapId,
+        rating,
+        session_id: sessionId
+      });
 
-      if (feedbackId) {
-        await updateWithDetailedFeedback(feedbackId, {
-          feedbackText: feedback,
-          useCase,
-          painPoint,
-          organization: canFeature ? organization : undefined,
-          email: canFeature ? email : undefined,
-          canFeature: isPositiveRating && feedback ? canFeature : undefined
-        });
-
-        await trackEvent({
-          event_name: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
-          event_data: { 
-            feedback_id: feedbackId,
-            map_id: mapId,
+      // Create lead if email is provided
+      if (email && name) {
+        await createLead({
+          email,
+          name,
+          lead_type: 'feedback',
+          status: 'pending',
+          session_id: sessionId,
+          event_data: {
+            feedback_id: feedbackData.id,
             rating,
-            has_text: !!feedback,
-            use_case: useCase || undefined,
-            pain_point: painPoint || undefined,
-            can_feature: isPositiveRating && feedback ? canFeature : undefined,
-            has_organization: !!organization,
-            has_email: !!email
+            can_feature: canFeature
           }
         });
       }
 
-      onClose();
-    } catch (err) {
-      console.error('Error submitting feedback:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit feedback. Please try again.');
-      
-      trackErrorWithContext(err instanceof Error ? err : new Error('Feedback submission failed'), {
-        category: 'USER_INPUT',
-        subcategory: 'FEEDBACK',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: {
-          mapId,
-          feedbackId,
-          rating,
-          hasText: !!feedback,
-          useCase: useCase || undefined,
-          painPoint: painPoint || undefined,
-          hasOrganization: !!organization,
-          hasEmail: !!email,
-          error: err instanceof Error ? err.message : String(err)
-        }
+      // Update feedback with details
+      await updateWithDetailedFeedback({
+        feedbackId: feedbackData.id,
+        feedback,
+        painPoint,
+        organization,
+        email,
+        canFeature,
+        session_id: sessionId
       });
 
-      await trackEvent({
-        event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
-        event_data: { 
-          error: err instanceof Error ? err.message : 'Unknown error',
-          context: 'feedback_submission',
-          map_id: mapId,
-          feedback_id: feedbackId
+      onClose();
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      const message = error instanceof Error ? error.message : 'Failed to submit feedback';
+      setError(message);
+      trackErrorWithContext(error instanceof Error ? error : new Error(message), {
+        category: ErrorCategory.FEEDBACK,
+        subcategory: 'SUBMIT',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          mapId,
+          rating,
+          error: message
         }
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto p-6">
-      {/* Rating Section - Always visible */}
+    <div className="space-y-4">
       <div className="text-center">
-        <h3 className="text-lg font-medium mb-3">How was your experience?</h3>
-        <div className="flex justify-center gap-4">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <button
-              key={value}
-              onClick={() => handleRatingChange(value)}
-              onMouseEnter={() => setHoverRating(value)}
-              onMouseLeave={() => setHoverRating(0)}
-              className={cn(
-                "text-3xl transition-transform hover:scale-110",
-                rating === value
-                  ? "opacity-100"
-                  : "opacity-60 hover:opacity-100"
-              )}
-              aria-label={`Rate ${value} stars`}
-            >
-              {value <= (hoverRating || rating || 0) ? "⭐" : "☆"}
-            </button>
-          ))}
+        <h3 className="text-lg font-medium">Rate your experience</h3>
+        <div className="mt-2">
+          <div className="flex justify-center space-x-2">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                key={value}
+                onClick={() => setRating(value)}
+                className={`w-10 h-10 rounded-full ${
+                  rating === value
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Progressive Feedback Sections */}
       {rating && (
         <div className="space-y-4">
-          {/* For negative ratings, show pain points */}
-          {!isPositiveRating && (
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                What could be improved?
-              </label>
-              <select
+          <Textarea
+            placeholder="Tell us about your experience..."
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+          />
+          <Input
+            type="email"
+            placeholder="Email (optional)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {email && (
+            <>
+              <Input
+                placeholder="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <Input
+                placeholder="Organization (optional)"
+                value={organization}
+                onChange={(e) => setOrganization(e.target.value)}
+              />
+              <Input
+                placeholder="What problem are you trying to solve? (optional)"
                 value={painPoint}
                 onChange={(e) => setPainPoint(e.target.value)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-              >
-                <option value="">Select...</option>
-                {PAIN_POINTS.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* For positive ratings, show use case first */}
-          {isPositiveRating && (
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                What are you using this for?
-              </label>
-              <select
-                value={useCase}
-                onChange={(e) => setUseCase(e.target.value)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-              >
-                <option value="">Select...</option>
-                {USE_CASES.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Optional feedback field */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {isPositiveRating
-                ? "Would you like to share your success story? (Optional)"
-                : "Any specific suggestions? (Optional)"}
-            </label>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 min-h-[80px]"
-              placeholder={isPositiveRating
-                ? "Tell us how you're using the map..."
-                : "Share your ideas for improvement..."}
-            />
-          </div>
-
-          {/* Feature Permission - Only for positive ratings with feedback */}
-          {isPositiveRating && feedback && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
+              />
+              <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  id="canFeature"
                   checked={canFeature}
                   onChange={(e) => setCanFeature(e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-700"
+                  className="form-checkbox"
                 />
-                <label htmlFor="canFeature" className="text-sm">
-                  I allow featuring my feedback as a testimonial
-                </label>
-              </div>
-
-              {/* Progressive organization fields - Only if canFeature is checked */}
-              {canFeature && (
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      {useCase === 'Business' ? 'Company Name' : 'Name'} (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={organization}
-                      onChange={(e) => setOrganization(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-                      placeholder={useCase === 'Business' ? 'Enter company name...' : 'Enter your name...'}
-                    />
-                  </div>
-                  {organization && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Contact Email (Optional)
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-                        placeholder="Enter your email..."
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  Can we feature your feedback?
+                </span>
+              </label>
+            </>
           )}
 
           {error && (
             <div className="text-red-500 text-sm">{error}</div>
           )}
 
-          {/* Submit Section */}
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
-            >
+          <div className="flex justify-end space-x-2">
+            <Button onClick={onClose} variant="outline">
               Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !rating}
-              className={cn(
-                "px-4 py-2 text-sm font-medium text-white rounded-md",
-                "bg-accent hover:bg-accent/90",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {isSubmitting ? "Submitting..." : "Submit Feedback"}
-            </button>
+            </Button>
+            <Button onClick={handleSubmitRating} disabled={isLoading}>
+              {isLoading ? 'Submitting...' : 'Submit'}
+            </Button>
           </div>
         </div>
       )}
     </div>
   );
-} 
+}

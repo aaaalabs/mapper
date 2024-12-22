@@ -28,3 +28,36 @@ export function Dialog({ isOpen, onClose, children }: DialogProps) {
     </div>
   );
 }
+
+interface DialogContentProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function DialogContent({ children, className = '' }: DialogContentProps) {
+  return (
+    <div className={`bg-background rounded-lg shadow-lg p-6 w-full max-w-md ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+export function DialogHeader({ children }: { children: React.ReactNode }) {
+  return <div className="mb-6">{children}</div>;
+}
+
+export function DialogFooter({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-6 flex justify-end space-x-2">
+      {children}
+    </div>
+  );
+}
+
+export function DialogTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-lg font-semibold mb-2">{children}</h2>;
+}
+
+export function DialogDescription({ children }: { children: React.ReactNode }) {
+  return <p className="text-muted-foreground">{children}</p>;
+}

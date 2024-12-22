@@ -1,7 +1,7 @@
-import supabaseClient from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
-// Export the singleton client
-export const supabase = supabaseClient;
+// Re-export the singleton client
+export { supabase };
 
 // Debug logging for development
 if (import.meta.env.DEV) {
@@ -16,20 +16,4 @@ if (import.meta.env.DEV) {
   supabase.auth.getSession().catch(err => {
     console.error('Supabase connection error:', err);
   });
-
-  // Set up periodic health checks
-  setInterval(async () => {
-    try {
-      const { error } = await supabase
-        .from('map_analytics_events')
-        .select('id')
-        .limit(1);
-
-      if (error) {
-        console.warn('Supabase health check failed:', error);
-      }
-    } catch (err) {
-      console.error('Supabase connection error:', err);
-    }
-  }, 30000); // Check every 30 seconds
 }

@@ -31,11 +31,31 @@ export default {
         "zoom-in-95": {
           "0%": { transform: "scale(0.95)" },
           "100%": { transform: "scale(1)" }
-        }
+        },
+        "accordion-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
+        },
+        "collapsible-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-collapsible-content-height)" },
+        },
+        "collapsible-up": {
+          from: { height: "var(--radix-collapsible-content-height)" },
+          to: { height: 0 },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.2s ease-out",
-        "zoom-in-95": "zoom-in-95 0.2s ease-out"
+        "zoom-in-95": "zoom-in-95 0.2s ease-out",
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        "collapsible-down": "collapsible-down 0.2s ease-out",
+        "collapsible-up": "collapsible-up 0.2s ease-out",
       }
     },
   },

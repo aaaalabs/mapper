@@ -3,7 +3,7 @@ import { cn } from '../../utils/cn';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'ghost' | 'outline';
+  variant?: 'primary' | 'ghost' | 'outline' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   children: React.ReactNode;
@@ -35,6 +35,11 @@ export function Button({
       'bg-transparent text-primary hover:bg-background-alt',
       'dark:text-background dark:hover:bg-background-alt',
       'border border-primary dark:border-background'
+    ].join(' '),
+    destructive: [
+      'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+      'dark:bg-destructive dark:text-destructive-foreground dark:hover:bg-destructive/90',
+      'border border-transparent'
     ].join(' ')
   };
 

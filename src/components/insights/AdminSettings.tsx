@@ -1,155 +1,448 @@
-import React, { useState, useEffect } from 'react';
-import supabase from '../../lib/supabaseClient';
-import { cn } from '@/lib/utils';
-import { adminStyles as styles } from '../admin/styles/adminStyles';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Button } from '../ui/Button';
+import { Switch } from '../ui/Switch';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import type { Database } from '../../types/supabase';
+import { settingsStyles as styles } from './styles/settingsStyles';
 
-interface User {
-  id: string;
-  email: string;
-  role?: 'admin' | 'user';
-  created_at: string;
-}
+type MapSettings = Database['public']['Tables']['map_admin_settings']['Row'];
+type SettingsType = MapSettings['settings'];
 
-interface AdminSettingsProps {
-  currentUserId: string;
-  isLoading: boolean;
-}
+const DEFAULT_SETTINGS: SettingsType = {
+  paymentEnvironment: 'sandbox' as const,
+  enablePaymentLogging: true,
+  analyticsDisplayLevel: 'conversion' as const,
+  conversionGoalValue: 100,
+  cookieSettings: {
+    enableCookieBanner: true,
+    allowAnalyticsCookies: true,
+    cookieExpiryDays: 30,
+  },
+  socialProof: {
+    enableTestimonialToasts: true,
+    showPurchaseNotifications: true,
+  },
+  maxMarkersPerMap: 1000,
+  requestsPerMinuteLimit: 60,
+  mapCacheDurationMinutes: 15,
+};
 
-export function AdminSettings({ currentUserId, isLoading }: AdminSettingsProps) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+export function AdminSettings() {
+  const [settings, setSettings] = useState<MapSettings | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchUsers();
+    fetchSettings();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchSettings = async () => {
     try {
-      const { data: userRoles, error: rolesError } = await supabase
-        .from('map_user_roles')
-        .select('user_id, role, email');
+      setLoading(true);
+      const { data, error: settingsError } = await supabase
+        .from('map_admin_settings')
+        .select('*')
+        .single();
 
-      if (rolesError) throw rolesError;
+      if (settingsError) {
+        if (settingsError.code === 'PGRST116') {
+          // No settings found, create default
+          const { data: newData, error: insertError } = await supabase
+            .from('map_admin_settings')
+            .insert({
+              settings: DEFAULT_SETTINGS,
+              user_id: null
+            })
+            .select()
+            .single();
 
-      const usersWithRoles = userRoles?.map(user => ({
-        id: user.user_id,
-        email: user.email,
-        created_at: new Date().toISOString(),
-        role: user.role
-      })) || [];
-
-      setUsers(usersWithRoles);
+          if (insertError) throw insertError;
+          setSettings(newData);
+        } else {
+          throw settingsError;
+        }
+      } else {
+        setSettings(data);
+      }
     } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to fetch users');
+      console.error('Error in fetchSettings:', err);
+      setError('Failed to load settings');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
-    try {
-      setError(null);
-      setSuccessMessage(null);
+  const updateSetting = async <K extends keyof SettingsType>(
+    key: K,
+    value: SettingsType[K]
+  ) => {
+    if (!settings) return;
 
-      const { error } = await supabase.rpc('assign_user_role', {
-        p_user_id: userId,
-        p_role: newRole
+    try {
+      setSaving(true);
+      const updatedSettings = {
+        ...settings.settings,
+        [key]: value
+      };
+
+      const { error: updateError } = await supabase
+        .from('map_admin_settings')
+        .update({ settings: updatedSettings })
+        .eq('id', settings.id);
+
+      if (updateError) throw updateError;
+
+      setSettings({
+        ...settings,
+        settings: updatedSettings
       });
-
-      if (error) throw error;
-
-      setSuccessMessage(`Successfully updated user role to ${newRole}`);
-      fetchUsers();
     } catch (err) {
-      console.error('Error updating user role:', err);
-      setError('Failed to update user role');
+      console.error('Error updating setting:', err);
+      setError('Failed to update setting');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className={styles.loading}>Loading users...</div>
+      <div className={styles.loadingContainer}>
+        <LoadingSpinner />
+      </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className={styles.errorContainer}>
+        <p className="text-red-500">{error}</p>
+        <Button onClick={fetchSettings}>Retry</Button>
+      </div>
+    );
+  }
+
+  const currentSettings = settings?.settings || DEFAULT_SETTINGS;
+  const cookieSettings = currentSettings.cookieSettings || {
+    enableCookieBanner: true,
+    allowAnalyticsCookies: true,
+    cookieExpiryDays: 30,
+  };
+  const socialProof = currentSettings.socialProof || {
+    enableTestimonialToasts: true,
+    showPurchaseNotifications: true,
+  };
+
   return (
-    <div className={styles.pageContainer}>
-      {/* Search Bar */}
-      <div className={styles.pageHeader}>
-        <input
-          type="text"
-          placeholder="Search users by email..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className={cn(styles.input.base, "w-64")}
-        />
+    <div className={styles.container}>
+      <h2 className={styles.title}>Admin Settings</h2>
+      
+      <div className={styles.settingsGrid}>
+        {/* Payment Section */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Payment Settings</h3>
+          
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Environment</h4>
+                <p className={styles.settingDescription}>
+                  Switch between test and live payment environments
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Select
+                  value={currentSettings.paymentEnvironment}
+                  onChange={(value) => updateSetting('paymentEnvironment', value as SettingsType['paymentEnvironment'])}
+                  options={[
+                    { label: 'Sandbox', value: 'sandbox' },
+                    { label: 'Production', value: 'production' }
+                  ]}
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Payment Logging</h4>
+                <p className={styles.settingDescription}>
+                  Enable detailed payment logging for debugging
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Switch
+                  checked={currentSettings.enablePaymentLogging}
+                  onCheckedChange={(checked) => updateSetting('enablePaymentLogging', checked)}
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Analytics Section */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Analytics & Growth</h3>
+          
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Analytics Display</h4>
+                <p className={styles.settingDescription}>
+                  Control how analytics are displayed (data collection remains detailed)
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Select
+                  value={currentSettings.analyticsDisplayLevel}
+                  onChange={(value) => updateSetting('analyticsDisplayLevel', value as SettingsType['analyticsDisplayLevel'])}
+                  options={[
+                    { label: 'Minimal', value: 'minimal' },
+                    { label: 'Conversion Focus', value: 'conversion' },
+                    { label: 'Detailed', value: 'detailed' }
+                  ]}
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Conversion Goal ($)</h4>
+                <p className={styles.settingDescription}>
+                  Target revenue for conversion tracking
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={currentSettings.conversionGoalValue}
+                  onChange={(e) => updateSetting('conversionGoalValue', Number(e.target.value))}
+                  disabled={saving}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cookie Settings */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Cookie Settings</h3>
+          
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Cookie Banner</h4>
+                <p className={styles.settingDescription}>
+                  Show cookie consent banner to new visitors
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Switch
+                  checked={cookieSettings.enableCookieBanner}
+                  onCheckedChange={(checked) => 
+                    updateSetting('cookieSettings', {
+                      ...cookieSettings,
+                      enableCookieBanner: checked
+                    })
+                  }
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Analytics Cookies</h4>
+                <p className={styles.settingDescription}>
+                  Enable cookies for tracking user behavior
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Switch
+                  checked={cookieSettings.allowAnalyticsCookies}
+                  onCheckedChange={(checked) => 
+                    updateSetting('cookieSettings', {
+                      ...cookieSettings,
+                      allowAnalyticsCookies: checked
+                    })
+                  }
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Cookie Expiry</h4>
+                <p className={styles.settingDescription}>
+                  Days before cookies expire
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={cookieSettings.cookieExpiryDays}
+                  onChange={(e) => 
+                    updateSetting('cookieSettings', {
+                      ...cookieSettings,
+                      cookieExpiryDays: Number(e.target.value)
+                    })
+                  }
+                  disabled={saving}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Social Proof */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Social Proof</h3>
+          
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Testimonial Toasts</h4>
+                <p className={styles.settingDescription}>
+                  Show recent positive testimonials in bottom corner
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Switch
+                  checked={socialProof.enableTestimonialToasts}
+                  onCheckedChange={(checked) => 
+                    updateSetting('socialProof', {
+                      ...socialProof,
+                      enableTestimonialToasts: checked
+                    })
+                  }
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Purchase Notifications</h4>
+                <p className={styles.settingDescription}>
+                  Show recent purchase notifications
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Switch
+                  checked={socialProof.showPurchaseNotifications}
+                  onCheckedChange={(checked) => 
+                    updateSetting('socialProof', {
+                      ...socialProof,
+                      showPurchaseNotifications: checked
+                    })
+                  }
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Performance Settings */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Performance Settings</h3>
+          
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Max Markers</h4>
+                <p className={styles.settingDescription}>
+                  Maximum markers allowed per map
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Input
+                  type="number"
+                  min={100}
+                  max={5000}
+                  value={currentSettings.maxMarkersPerMap}
+                  onChange={(e) => updateSetting('maxMarkersPerMap', Number(e.target.value))}
+                  disabled={saving}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Rate Limit</h4>
+                <p className={styles.settingDescription}>
+                  API requests allowed per minute
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Input
+                  type="number"
+                  min={10}
+                  max={300}
+                  value={currentSettings.requestsPerMinuteLimit}
+                  onChange={(e) => updateSetting('requestsPerMinuteLimit', Number(e.target.value))}
+                  disabled={saving}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingHeader}>
+              <div>
+                <h4 className={styles.settingLabel}>Cache Duration</h4>
+                <p className={styles.settingDescription}>
+                  Minutes to cache map data
+                </p>
+              </div>
+              <div className={styles.settingControl}>
+                <Input
+                  type="number"
+                  min={5}
+                  max={60}
+                  value={currentSettings.mapCacheDurationMinutes}
+                  onChange={(e) => updateSetting('mapCacheDurationMinutes', Number(e.target.value))}
+                  disabled={saving}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Messages */}
-      {error && (
-        <div className={styles.alert.error}>
-          {error}
+      {saving && (
+        <div className={styles.savingIndicator}>
+          <LoadingSpinner size="sm" />
+          <span>Saving changes...</span>
         </div>
       )}
-      {successMessage && (
-        <div className={styles.alert.success}>
-          {successMessage}
-        </div>
-      )}
-
-      {/* Users List */}
-      <div className={styles.panel}>
-        <table className={styles.table}>
-          <thead className={styles.tableHeader}>
-            <tr>
-              <th className={styles.tableHeaderCell}>Email</th>
-              <th className={styles.tableHeaderCell}>Role</th>
-              <th className={styles.tableHeaderCell}>Joined</th>
-              <th className={styles.tableHeaderCell}>Actions</th>
-            </tr>
-          </thead>
-          <tbody className={styles.tableBody}>
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className={styles.tableRow}>
-                <td className={styles.tableCell}>
-                  <div className="text-foreground">{user.email}</div>
-                </td>
-                <td className={styles.tableCell}>
-                  <span className={cn(
-                    styles.badge.base,
-                    user.role === 'admin' ? styles.badge.purple : styles.badge.gray
-                  )}>
-                    {user.role}
-                  </span>
-                </td>
-                <td className={styles.tableCell}>
-                  <div className="text-muted-foreground">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </div>
-                </td>
-                <td className={styles.tableCell}>
-                  {user.id !== currentUserId && (
-                    <select
-                      value={user.role}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value as 'admin' | 'user')}
-                      className={cn(styles.select.base, "w-full")}
-                    >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }

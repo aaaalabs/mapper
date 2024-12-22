@@ -1,173 +1,183 @@
-import { supabase } from '../config/supabase';
-import { findLeadByEmail, associateLeadWithFeedback, trackLeadInteraction, createLead } from './leadService';
-import { getSessionId } from './analytics';
+import { supabase } from '../lib/supabase';
+import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from './analytics';
 import { trackEvent, ANALYTICS_EVENTS } from './analytics';
 
-interface InitialRating {
+export interface InitialRating {
   mapId: string;
   rating: number;
+  session_id?: string | undefined;
 }
 
-interface DetailedFeedback {
-  metadata: {
-    feedbackText?: string;
-    useCase?: string;
-    painPoint?: string;
-    organization?: string;
-    email?: string;
-    canFeature?: boolean;
-  };
-  feedbackType: 'positive' | 'negative' | 'neutral';
+export interface DetailedFeedback {
+  feedbackId: string;
+  feedback?: string;
+  painPoint?: string;
+  organization?: string;
+  email?: string;
+  canFeature?: boolean;
+  session_id?: string | undefined;
 }
 
-export async function saveInitialRating({ mapId, rating }: InitialRating) {
+export interface FeedbackMetadata {
+  email?: string | null;
+  useCase?: string | null;
+  painPoint?: string | null;
+  canFeature?: boolean;
+  organization?: string | null;
+  initial_submission?: string;
+  rating_context?: string;
+  last_updated?: string;
+}
+
+export const saveInitialRating = async ({ mapId, rating, session_id }: InitialRating) => {
   try {
-    const sessionId = await getSessionId();
-    
-    const newFeedback = {
-      map_id: mapId,
-      rating,
-      feedback_type: rating >= 4 ? 'positive' : rating <= 2 ? 'negative' : 'neutral',
-      metadata: {
-        initial_submission: new Date().toISOString(),
-        rating_context: 'initial'
-      },
-      session_id: sessionId,
-      created_at: new Date().toISOString()
-    };
-
     const { data, error } = await supabase
       .from('map_feedback')
-      .insert([newFeedback])
-      .select('id, map_id, rating, feedback_type, metadata')
+      .insert({
+        map_id: mapId,
+        rating,
+        session_id,
+        status: 'pending',
+        metadata: {
+          initial_submission: new Date().toISOString(),
+          rating_context: 'initial'
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
       .single();
 
     if (error) {
-      console.error('Supabase error saving initial rating:', error);
+      trackErrorWithContext(new Error(`Failed to save initial rating: ${error.message}`), {
+        category: ErrorCategory.FEEDBACK,
+        subcategory: 'INITIAL_RATING',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          mapId,
+          rating,
+          session_id,
+          error: error.message
+        }
+      });
+
       await trackEvent({
-        event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
+        event_type: ANALYTICS_EVENTS.FEEDBACK.INITIAL,
         event_data: {
           error: error.message,
-          code: error.code,
-          context: 'save_initial_rating',
-          map_id: mapId,
+          mapId,
           rating
         }
       });
-      throw new Error(error.message);
+
+      throw error;
     }
+
+    await trackEvent({
+      event_type: ANALYTICS_EVENTS.FEEDBACK.INITIAL,
+      event_data: {
+        mapId,
+        rating,
+        feedback_id: data.id
+      }
+    });
 
     return data;
-  } catch (err) {
-    console.error('Error in saveInitialRating:', err);
-    throw err;
-  }
-}
-
-export async function updateWithDetailedFeedback(feedbackId: string, feedback: DetailedFeedback) {
-  try {
-    // First get the existing feedback to preserve metadata
-    const { data: existingFeedback, error: fetchError } = await supabase
-      .from('map_feedback')
-      .select('metadata')
-      .eq('id', feedbackId)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching existing feedback:', fetchError);
-      throw new Error(fetchError.message);
-    }
-
-    // Clean up metadata values
-    const cleanMetadata = {
-      ...feedback.metadata,
-      feedbackText: feedback.metadata.feedbackText || null,
-      useCase: feedback.metadata.useCase || null,
-      painPoint: feedback.metadata.painPoint || null,
-      organization: feedback.metadata.organization || null,
-      email: feedback.metadata.email || null,
-      canFeature: feedback.metadata.canFeature || false,
-      last_updated: new Date().toISOString()
-    };
-
-    // Update the feedback
-    const { error: updateError } = await supabase
-      .from('map_feedback')
-      .update({
-        metadata: cleanMetadata,
-        feedback_type: feedback.feedbackType,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', feedbackId);
-
-    if (updateError) {
-      console.error('Supabase error updating feedback:', updateError);
-      await trackEvent({
-        event_name: ANALYTICS_EVENTS.SYSTEM.ERROR,
-        event_data: {
-          error: updateError.message,
-          code: updateError.code,
-          context: 'update_detailed_feedback',
-          feedback_id: feedbackId
-        }
-      });
-      throw new Error(updateError.message);
-    }
-
-    // Then fetch the updated record
-    const { data: updatedFeedback, error: finalFetchError } = await supabase
-      .from('map_feedback')
-      .select('id, map_id, rating, feedback_type, metadata')
-      .eq('id', feedbackId)
-      .single();
-
-    if (finalFetchError || !updatedFeedback) {
-      console.error('Error fetching updated feedback:', finalFetchError);
-      throw new Error(finalFetchError?.message || 'Failed to fetch updated feedback');
-    }
-
-    // Only try to connect with lead for positive feedback with contact info
-    if (feedback.metadata.email && feedback.feedbackType === 'positive') {
-      try {
-        // First try to find an existing lead
-        let lead = await findLeadByEmail(feedback.metadata.email);
-
-        // If no lead exists and we have an organization, create one
-        if (!lead && feedback.metadata.organization) {
-          lead = await createLead({
-            email: feedback.metadata.email,
-            name: feedback.metadata.organization,
-            lead_type: 'beta_waitlist',
-            status: 'pending',
-            source: 'feedback',
-            event_data: {
-              feedback_id: feedbackId,
-              feedback_type: feedback.feedbackType,
-              can_feature: feedback.metadata.canFeature
-            }
-          });
-        }
-
-        // If we have a lead (existing or new), associate it with the feedback
-        if (lead?.id) {
-          await associateLeadWithFeedback(lead.id, feedbackId);
-          
-          // Track the interaction
-          await trackLeadInteraction(feedback.metadata.email, 'feedback_submitted', {
-            feedback_id: feedbackId,
-            feedback_type: feedback.feedbackType,
-            can_feature: feedback.metadata.canFeature
-          });
-        }
-      } catch (err) {
-        // Log but don't throw - lead association is not critical
-        console.warn('Error handling lead association:', err);
-      }
-    }
-
-    return updatedFeedback;
   } catch (error) {
-    console.error('Error in updateWithDetailedFeedback:', error);
+    console.error('Error saving initial rating:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Failed to save initial rating'), {
+      category: ErrorCategory.FEEDBACK,
+      subcategory: 'INITIAL_RATING',
+      severity: ErrorSeverity.HIGH,
+      metadata: {
+        mapId,
+        rating,
+        session_id,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
     throw error;
   }
-}
+};
+
+export const updateWithDetailedFeedback = async ({
+  feedbackId,
+  feedback,
+  painPoint,
+  organization,
+  email,
+  canFeature,
+  session_id
+}: DetailedFeedback) => {
+  try {
+    const { data, error } = await supabase
+      .from('map_feedback')
+      .update({
+        metadata: {
+          email,
+          painPoint,
+          organization,
+          canFeature,
+          last_updated: new Date().toISOString()
+        },
+        session_id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', feedbackId)
+      .select()
+      .single();
+
+    if (error) {
+      trackErrorWithContext(new Error(`Failed to update feedback: ${error.message}`), {
+        category: ErrorCategory.FEEDBACK,
+        subcategory: 'DETAILED_FEEDBACK',
+        severity: ErrorSeverity.HIGH,
+        metadata: {
+          feedbackId,
+          session_id,
+          error: error.message
+        }
+      });
+
+      await trackEvent({
+        event_type: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
+        event_data: {
+          error: error.message,
+          feedbackId,
+          has_email: !!email,
+          has_pain_point: !!painPoint,
+          has_organization: !!organization,
+          can_feature: canFeature
+        }
+      });
+
+      throw error;
+    }
+
+    await trackEvent({
+      event_type: ANALYTICS_EVENTS.FEEDBACK.COMMENT,
+      event_data: {
+        feedbackId,
+        has_email: !!email,
+        has_pain_point: !!painPoint,
+        has_organization: !!organization,
+        can_feature: canFeature
+      }
+    });
+
+    return data;
+  } catch (error) {
+    console.error('Error updating feedback:', error);
+    trackErrorWithContext(error instanceof Error ? error : new Error('Failed to update feedback'), {
+      category: ErrorCategory.FEEDBACK,
+      subcategory: 'DETAILED_FEEDBACK',
+      severity: ErrorSeverity.HIGH,
+      metadata: {
+        feedbackId,
+        session_id,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
+    throw error;
+  }
+};
