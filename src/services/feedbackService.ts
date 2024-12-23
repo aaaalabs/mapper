@@ -34,13 +34,14 @@ interface UpdateFeedbackParams {
 
 const DEFAULT_METADATA: FeedbackMetadata = {
   email: null,
-  useCase: null,
-  company: null,
-  position: null,
-  industry: null,
-  size: null,
-  location: null,
-  source: null,
+  use_case: null,
+  can_feature: false,
+  testimonial: null,
+  organization: null,
+  community_type: null,
+  name: null,
+  feedback_text: null,
+  context: null,
   last_updated: new Date().toISOString()
 };
 
@@ -165,7 +166,7 @@ export async function saveInitialRating({ map_id, rating, session_id, context }:
       throw new Error('Rating must be between 1 and 5');
     }
 
-    // Ensure session exists
+    // Ensure session exists first
     const validatedSessionId = await ensureSession(session_id || getSessionId());
 
     // First check if feedback exists
@@ -179,23 +180,29 @@ export async function saveInitialRating({ map_id, rating, session_id, context }:
       throw existingError;
     }
 
+    const feedback_type: FeedbackType = rating >= 4 ? 'positive' : rating === 1 ? 'negative' : 'neutral';
+    const timestamp = new Date().toISOString();
+
     if (existingFeedback?.id) {
       // Update existing feedback
       const { error: updateError } = await supabase
         .from('map_feedback')
         .update({
           rating,
-          feedback_type: rating >= 4 ? 'positive' : rating >= 2 ? 'neutral' : 'negative',
+          feedback_type,
           metadata: {
             ...DEFAULT_METADATA,
-            ...existingFeedback.metadata
+            ...(existingFeedback.metadata || {}),
+            context,
+            last_updated: timestamp
           },
           status: 'pending',
-          updated_at: new Date().toISOString()
+          updated_at: timestamp
         })
         .eq('id', existingFeedback.id);
 
       if (updateError) {
+        console.error('Failed to update feedback:', updateError);
         throw updateError;
       }
     } else {
@@ -205,19 +212,25 @@ export async function saveInitialRating({ map_id, rating, session_id, context }:
         .insert({
           map_id,
           rating,
-          feedback_type: rating >= 4 ? 'positive' : rating >= 2 ? 'neutral' : 'negative',
-          metadata: DEFAULT_METADATA,
+          feedback_type,
+          metadata: {
+            ...DEFAULT_METADATA,
+            context,
+            last_updated: timestamp
+          },
           session_id: validatedSessionId,
           status: 'pending',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: timestamp,
+          updated_at: timestamp
         });
 
       if (insertError) {
+        console.error('Failed to insert feedback:', insertError);
         throw insertError;
       }
     }
 
+    // Only track event if feedback was successfully saved
     await trackEvent(ANALYTICS_EVENTS.FEEDBACK.SUBMITTED, { rating, context });
   } catch (error) {
     await trackError(error instanceof Error ? error : new Error('Failed to save rating'), {
@@ -227,7 +240,8 @@ export async function saveInitialRating({ map_id, rating, session_id, context }:
       metadata: {
         error: error instanceof Error ? error.message : String(error),
         map_id,
-        rating
+        rating,
+        context
       }
     });
     throw error; // Re-throw to handle in UI
@@ -313,17 +327,22 @@ export async function submitFeedback(feedback: FeedbackData): Promise<void> {
       throw existingError;
     }
 
+    const timestamp = new Date().toISOString();
+    const feedback_type: FeedbackType = feedback.rating >= 4 ? 'positive' : feedback.rating === 1 ? 'negative' : 'neutral';
+
     const metadata = {
       ...DEFAULT_METADATA,
       ...(existingFeedback?.metadata || {}),
-      email: feedback.metadata.email,
-      useCase: feedback.content || null,
-      company: feedback.metadata.company || null,
-      industry: feedback.metadata.industry || null,
-      position: feedback.metadata.position || null,
-      size: feedback.metadata.size || null,
-      location: feedback.metadata.location || null,
-      last_updated: new Date().toISOString()
+      email: feedback.metadata.email || null,
+      name: feedback.metadata.name || null,
+      feedback_text: feedback.content || null,
+      use_case: feedback.content || null,
+      can_feature: feedback.metadata.can_feature || false,
+      testimonial: feedback.rating >= 4 ? feedback.content : null,
+      organization: feedback.metadata.organization || null,
+      community_type: feedback.metadata.community_type || null,
+      context: feedback.metadata.context || null,
+      last_updated: timestamp
     };
 
     if (existingFeedback?.id) {
@@ -332,40 +351,45 @@ export async function submitFeedback(feedback: FeedbackData): Promise<void> {
         .from('map_feedback')
         .update({
           rating: feedback.rating,
-          feedback_type: feedback.feedback_type,
+          feedback_type,
           metadata,
           status: feedback.status,
-          updated_at: new Date().toISOString()
+          updated_at: timestamp
         })
         .eq('id', existingFeedback.id);
 
       if (updateError) {
+        console.error('Failed to update feedback:', updateError);
         throw updateError;
       }
     } else {
       // Insert new feedback
-      const validatedSessionId = await ensureSession(getSessionId());
       const { error: insertError } = await supabase
         .from('map_feedback')
         .insert({
           map_id: feedback.id,
           rating: feedback.rating,
-          feedback_type: feedback.feedback_type,
+          feedback_type,
           metadata,
           status: feedback.status,
-          session_id: validatedSessionId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          session_id: localStorage.getItem('session_id'),
+          created_at: timestamp,
+          updated_at: timestamp
         });
 
       if (insertError) {
+        console.error('Failed to insert feedback:', insertError);
         throw insertError;
       }
     }
 
     await trackEvent(ANALYTICS_EVENTS.FEEDBACK.SUBMITTED, {
       rating: feedback.rating,
-      type: feedback.feedback_type
+      type: feedback_type,
+      has_email: Boolean(feedback.metadata.email),
+      has_feedback: Boolean(feedback.content),
+      context: feedback.metadata.context,
+      can_feature: metadata.can_feature
     });
   } catch (error) {
     await trackError(error instanceof Error ? error : new Error('Failed to submit feedback'), {
@@ -374,7 +398,9 @@ export async function submitFeedback(feedback: FeedbackData): Promise<void> {
       componentName: 'FeedbackService',
       metadata: {
         error: error instanceof Error ? error.message : String(error),
-        feedback_id: feedback.id
+        feedback_id: feedback.id,
+        rating: feedback.rating,
+        context: feedback.metadata.context
       }
     });
     throw error; // Re-throw to handle in UI

@@ -3,14 +3,15 @@ export type FeedbackStatus = 'pending' | 'contacted' | 'approved' | 'featured' |
 
 export interface FeedbackMetadata {
   email: string | null;
-  useCase?: string | null;
-  company?: string | null;
-  position?: string | null;
-  industry?: string | null;
-  size?: string | null;
-  location?: string | null;
-  source?: string | null;
-  last_updated?: string;
+  use_case: string | null;
+  can_feature: boolean;
+  testimonial: string | null;
+  organization: string | null;
+  community_type: string | null;
+  name: string | null;
+  feedback_text: string | null;
+  context: 'download' | 'share' | null;
+  last_updated: string;
 }
 
 export interface FeedbackData {

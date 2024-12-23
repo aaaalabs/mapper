@@ -187,17 +187,43 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
     <div className="space-y-4">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Share your thoughts (optional)</label>
+          <label className="block text-sm font-medium mb-1">
+            {rating && rating >= 4 
+              ? "Would you like to share your success story? (Optional)"
+              : "What could be improved? (Optional)"}
+          </label>
           <Textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
-            placeholder="What did you like? What could be better?"
+            placeholder={rating && rating >= 4 
+              ? "Tell us how you're using the map and what you like about it..."
+              : "Help us understand what we could do better..."}
             className="w-full"
           />
         </div>
 
+        {/* Only show testimonial option for ratings >= 4 */}
+        {rating && rating >= 4 && (
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="canFeature"
+              checked={canFeature}
+              onChange={(e) => setCanFeature(e.target.checked)}
+              className="rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="canFeature" className="text-sm">
+              I allow featuring my feedback as a testimonial
+            </label>
+          </div>
+        )}
+
         <div className="space-y-3">
-          <p className="text-sm font-medium">Get notified of new features (optional)</p>
+          <p className="text-sm font-medium">
+            {rating && rating >= 4 
+              ? "Stay updated on new features (Optional)"
+              : "Get notified when we address this (Optional)"}
+          </p>
           <Input
             type="text"
             placeholder="Your name"
@@ -213,28 +239,18 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={canFeature}
-            onChange={(e) => setCanFeature(e.target.checked)}
-            className="rounded border-gray-300"
-          />
-          I allow featuring my feedback
-        </label>
-      </div>
+        {error && (
+          <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+        )}
 
-      {error && (
-        <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
-      )}
-
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={onClose}>
-          Skip
-        </Button>
-        <Button onClick={handleSubmitDetails} disabled={isLoading}>
-          {isLoading ? 'Submitting...' : 'Submit'}
-        </Button>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose}>
+            Skip
+          </Button>
+          <Button onClick={handleSubmitDetails} disabled={isLoading}>
+            {isLoading ? 'Submitting...' : 'Submit'}
+          </Button>
+        </div>
       </div>
     </div>
   );
