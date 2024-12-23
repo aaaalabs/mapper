@@ -123,9 +123,9 @@ export const isAdminPage = () => {
 };
 
 // Get or create a session ID
-export const getSessionId = (): string => {
+export const getSessionId = (): string | null => {
   // Don't track sessions on admin pages
-  if (isAdminPage()) return '';
+  if (isAdminPage()) return null;
   
   let sessionId = localStorage.getItem('session_id');
   if (!sessionId) {
