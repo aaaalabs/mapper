@@ -8,6 +8,7 @@ export const adminStyles = {
   
   // Card/Panel styles
   panel: 'bg-card text-card-foreground shadow-sm rounded-lg overflow-hidden',
+  panelTitle: "text-lg font-medium mb-4",
   
   // Table styles
   tableContainer: 'overflow-x-auto -mx-4 sm:mx-0',

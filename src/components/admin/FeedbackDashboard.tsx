@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/config/supabase';
+import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
@@ -7,7 +7,29 @@ import { cn } from '@/lib/utils';
 import { adminStyles as styles } from './styles/adminStyles';
 import { DatePicker } from '../ui/DatePicker';
 import { Button } from '../ui/Button';
-import { FeedbackData, FeedbackStats } from '@/types/feedback';
+import { Spinner } from '../ui/Spinner';
+import { Alert } from '../ui/Alert';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { FeedbackData, FeedbackStats, FeedbackError } from '@/types/feedback';
+import { getFeedbackStats } from '@/services/feedbackService';
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <p className="text-gray-500 dark:text-gray-400">{message}</p>
+    </div>
+  );
+}
+
+function ChartErrorBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundary
+      fallback={<EmptyState message="Error loading chart. Please try again later." />}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
 
 export function FeedbackDashboard() {
   const [feedback, setFeedback] = useState<FeedbackData[]>([]);
@@ -24,6 +46,8 @@ export function FeedbackDashboard() {
   const fetchFeedback = async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const { data, error: fetchError } = await supabase
         .from('map_feedback')
         .select('*')
@@ -31,64 +55,45 @@ export function FeedbackDashboard() {
         .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        throw new FeedbackError(
+          'Failed to fetch feedback',
+          'DATABASE',
+          { error: fetchError }
+        );
+      }
 
       const typedData = (data || []).map((item): FeedbackData => ({
-        ...item,
+        id: item.id,
+        map_id: item.map_id,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
         feedback_type: item.feedback_type || 'neutral',
         status: item.status || 'pending',
+        rating: item.rating,
+        session_id: item.session_id || undefined,
         metadata: {
           email: item.metadata?.email || null,
-          useCase: item.metadata?.useCase || null,
-          company: item.metadata?.company || null,
-          position: item.metadata?.position || null,
-          industry: item.metadata?.industry || null,
-          size: item.metadata?.size || null,
+          name: item.metadata?.name || null,
+          can_feature: item.metadata?.can_feature || false,
+          testimonial: item.metadata?.testimonial || null,
+          feedback_text: item.metadata?.feedback_text || null,
+          context: item.metadata?.context || null,
           location: item.metadata?.location || null,
           source: item.metadata?.source || null,
-          last_updated: item.metadata?.last_updated
+          last_updated: item.metadata?.last_updated || new Date().toISOString()
         }
       }));
 
       setFeedback(typedData);
-      calculateStats(typedData);
+      const stats = await getFeedbackStats();
+      setStats(stats);
     } catch (err) {
       console.error('Error fetching feedback:', err);
-      setError('Failed to fetch feedback data');
+      setError(err instanceof FeedbackError ? err.message : 'Failed to fetch feedback data');
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = (data: FeedbackData[]) => {
-    const stats: FeedbackStats = {
-      totalCount: data.length,
-      averageRating: 0,
-      typeDistribution: {},
-      ratingDistribution: {},
-      statusDistribution: {}
-    };
-
-    let totalRating = 0;
-    let ratingCount = 0;
-
-    data.forEach(item => {
-      // Type distribution
-      stats.typeDistribution[item.feedback_type] = (stats.typeDistribution[item.feedback_type] || 0) + 1;
-
-      // Status distribution
-      stats.statusDistribution[item.status] = (stats.statusDistribution[item.status] || 0) + 1;
-
-      // Rating distribution
-      if (item.rating) {
-        stats.ratingDistribution[item.rating] = (stats.ratingDistribution[item.rating] || 0) + 1;
-        totalRating += item.rating;
-        ratingCount++;
-      }
-    });
-
-    stats.averageRating = ratingCount > 0 ? totalRating / ratingCount : 0;
-    setStats(stats);
   };
 
   const getStatusColor = (status: string) => {
@@ -112,87 +117,113 @@ export function FeedbackDashboard() {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
-  }
-
-  if (error) {
     return (
-      <div className="text-red-500 p-4 rounded-md bg-red-50 dark:bg-red-900/20">
-        {error}
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Spinner size="lg" />
       </div>
     );
   }
 
-  const pieData = Object.entries(stats?.typeDistribution || {}).map(([type, value]) => ({
-    id: type,
-    label: type,
-    value,
-  }));
+  if (error) {
+    return (
+      <Alert variant="error" className="m-4">
+        {error}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchFeedback()}
+          className="mt-2"
+        >
+          Try Again
+        </Button>
+      </Alert>
+    );
+  }
+
+  if (!feedback.length) {
+    return (
+      <EmptyState message="No feedback data available for the selected date range." />
+    );
+  }
 
   return (
-    <div className={styles.pageContainer}>
-      {/* Header */}
-      <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Feedback Dashboard</h1>
-        <div className="flex space-x-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium mb-1">Start Date</label>
-            <DatePicker date={startDate} onChange={setStartDate} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">End Date</label>
-            <DatePicker date={endDate} onChange={setEndDate} />
-          </div>
-          <Button onClick={fetchFeedback} variant="outline">
-            Refresh
-          </Button>
-        </div>
+    <div className="space-y-4 p-4">
+      {/* Date Range Selector */}
+      <div className={cn(styles.panel, "flex gap-4 items-center")}>
+        <DatePicker
+          date={startDate}
+          onChange={date => date && setStartDate(date)}
+        />
+        <span>to</span>
+        <DatePicker
+          date={endDate}
+          onChange={date => date && setEndDate(date)}
+        />
       </div>
 
-      {/* Stats Overview */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className={cn(styles.panel, "p-4")}>
-            <h3 className="text-sm font-medium text-muted-foreground">Total Feedback</h3>
-            <p className="text-2xl font-semibold mt-1">{stats.totalCount}</p>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ChartErrorBoundary>
+          {/* Type Distribution */}
+          <div className={cn(styles.panel, "h-[300px]")}>
+            <h3 className={styles.panelTitle}>Feedback Types</h3>
+            <ResponsivePie
+              data={Object.entries(stats?.typeDistribution || {}).map(([id, value]) => ({
+                id,
+                value,
+                color: getFeedbackTypeColor(id)
+              }))}
+              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
+              innerRadius={0.5}
+              padAngle={0.7}
+              cornerRadius={3}
+              activeOuterRadiusOffset={8}
+              colors={{ scheme: 'nivo' }}
+              borderWidth={1}
+              borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
+              arcLinkLabelsSkipAngle={10}
+              arcLinkLabelsTextColor="var(--foreground)"
+              arcLinkLabelsThickness={2}
+              arcLinkLabelsColor={{ from: 'color' }}
+              arcLabelsSkipAngle={10}
+              arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+              theme={{
+                text: {
+                  fill: 'var(--foreground)'
+                },
+                labels: {
+                  text: {
+                    fill: 'var(--foreground)'
+                  }
+                },
+                legends: {
+                  text: {
+                    fill: 'var(--foreground)'
+                  }
+                }
+              }}
+            />
           </div>
-          <div className={cn(styles.panel, "p-4")}>
-            <h3 className="text-sm font-medium text-muted-foreground">Average Rating</h3>
-            <p className="text-2xl font-semibold mt-1">{stats.averageRating} / 5</p>
-          </div>
-          <div className={cn(styles.panel, "p-4")}>
-            <h3 className="text-sm font-medium text-muted-foreground">Positive Feedback</h3>
-            <p className="text-2xl font-semibold mt-1">
-              {stats.typeDistribution.positive || 0}
-              <span className="text-sm text-muted-foreground ml-1">
-                ({Math.round(((stats.typeDistribution.positive || 0) / stats.totalCount) * 100)}%)
-              </span>
-            </p>
-          </div>
-          <div className={cn(styles.panel, "p-4")}>
-            <h3 className="text-sm font-medium text-muted-foreground">Pending Review</h3>
-            <p className="text-2xl font-semibold mt-1">{stats.statusDistribution.pending || 0}</p>
-          </div>
-        </div>
-      )}
+        </ChartErrorBoundary>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Rating Distribution */}
-        <div className={cn(styles.panel, "p-4")}>
-          <h3 className="text-lg font-medium mb-4">Rating Distribution</h3>
-          <div className="h-[300px]">
+        <ChartErrorBoundary>
+          {/* Rating Distribution */}
+          <div className={cn(styles.panel, "h-[300px]")}>
+            <h3 className={styles.panelTitle}>Rating Distribution</h3>
             <ResponsiveBar
               data={Object.entries(stats?.ratingDistribution || {}).map(([rating, count]) => ({
                 rating,
-                count,
+                count
               }))}
               keys={['count']}
               indexBy="rating"
-              margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
+              margin={{ top: 50, right: 60, bottom: 50, left: 60 }}
               padding={0.3}
               valueScale={{ type: 'linear' }}
+              indexScale={{ type: 'band', round: true }}
               colors={{ scheme: 'nivo' }}
+              axisTop={null}
+              axisRight={null}
               axisBottom={{
                 tickSize: 5,
                 tickPadding: 5,
@@ -200,6 +231,7 @@ export function FeedbackDashboard() {
                 legend: 'Rating',
                 legendPosition: 'middle',
                 legendOffset: 32,
+                tickValues: [1, 2, 3, 4, 5]
               }}
               axisLeft={{
                 tickSize: 5,
@@ -207,53 +239,71 @@ export function FeedbackDashboard() {
                 tickRotation: 0,
                 legend: 'Count',
                 legendPosition: 'middle',
-                legendOffset: -40,
+                legendOffset: -40
               }}
               theme={{
+                text: {
+                  fill: 'var(--foreground)'
+                },
                 axis: {
                   ticks: {
                     text: {
-                      fill: '#888888',
-                    },
+                      fill: 'var(--foreground)'
+                    }
                   },
                   legend: {
                     text: {
-                      fill: '#888888',
-                    },
-                  },
-                },
-                grid: {
-                  line: {
-                    stroke: '#dddddd',
-                  },
-                },
+                      fill: 'var(--foreground)'
+                    }
+                  }
+                }
               }}
             />
           </div>
-        </div>
+        </ChartErrorBoundary>
 
-        {/* Feedback Type Distribution */}
-        <div className={cn(styles.panel, "p-4")}>
-          <h3 className="text-lg font-medium mb-4">Feedback Type Distribution</h3>
-          <div className="h-[300px]">
+        <ChartErrorBoundary>
+          {/* Status Distribution */}
+          <div className={cn(styles.panel, "h-[300px]")}>
+            <h3 className={styles.panelTitle}>Status Distribution</h3>
             <ResponsivePie
-              data={pieData}
+              data={Object.entries(stats?.statusDistribution || {}).map(([id, value]) => ({
+                id,
+                value,
+                color: getStatusColor(id)
+              }))}
               margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
               innerRadius={0.5}
               padAngle={0.7}
               cornerRadius={3}
+              activeOuterRadiusOffset={8}
               colors={{ scheme: 'nivo' }}
               borderWidth={1}
               borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
               arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#333333"
+              arcLinkLabelsTextColor="var(--foreground)"
               arcLinkLabelsThickness={2}
               arcLinkLabelsColor={{ from: 'color' }}
               arcLabelsSkipAngle={10}
               arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+              theme={{
+                text: {
+                  fill: 'var(--foreground)'
+                },
+                labels: {
+                  text: {
+                    fill: 'var(--foreground)'
+                  }
+                },
+                legends: {
+                  text: {
+                    fill: 'var(--foreground)'
+                  }
+                }
+              }}
             />
           </div>
-        </div>
+        </ChartErrorBoundary>
       </div>
 
       {/* Feedback Table */}

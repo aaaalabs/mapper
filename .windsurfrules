@@ -1,120 +1,80 @@
 # Mapper Development Rules
-Every time you apply a rule, explicitly state its rule number in the output.  
-(You may abbreviate the rule description to a single word or phrase.)
+When applying a rule, reference its number (e.g., "[001]"). Abbreviations for rule descriptions are allowed.
 
 ---
 
 ## Code Organization
-- [001] Components: Use `src/components/{feature}/`
-- [002] Table Prefix: Supabase tables must be `map_` or `maps_`
-- [003] Hooks: Reusable hooks in `src/hooks/` with `use` prefix
-- [004] Types: All type definitions in `src/types/` with proper namespacing
-- [005] Scope: Keep changes minimal; reuse existing solutions
+- [001] Structure: Use `src/components/{feature}/`; Supabase tables must be `map_` or `maps_`; hooks in `src/hooks/`; type definitions in `src/types/`; keep changes minimal.
 
 ## TypeScript Best Practices
-- [101] Returns: Use explicit return types
-- [102] Interfaces: Prefer interfaces over types
-- [103] Unions: Use discriminated unions for complex states
-- [104] Strict: Enforce strict null checks
+- [101] Enforce: Explicit return types, prefer interfaces, use discriminated unions, strict null checks.
 
 ## Component Guidelines
-- [201] Split: Break down components > 100 lines
-- [202] Hooks: Use custom hooks for complex logic
-- [203] Cleanup: Implement proper `useEffect` cleanup
-- [204] Boundaries: Use error boundaries for map/chart errors
+- [201] Components: Limit to ~100 lines; use custom hooks for complex logic; properly clean up `useEffect`; apply error boundaries for critical UI parts.
 
 ## Data Visualization
-- [301] Theme: Maintain consistent chart theming
-- [302] Typed Data: Ensure proper TS types for chart data
-- [303] Loading: Show loading states for all visualizations
-- [304] Empty/Error: Gracefully handle empty/error states
+- [301] Charts: Maintain consistent theming, strongly type chart data, display loading states, handle empty/error scenarios.
 
 ## Map Interactions
-- [401] Zoom: Set appropriate zoom levels
-- [402] Clustering: Cluster large datasets
-- [403] Boundaries: Handle map boundary edge cases
-- [404] Caching: Cache map data when appropriate
+- [401] Map: Apply suitable zoom, clustering for large data, boundary checks, caching when feasible.
 
 ## Performance
-- [501] Pagination: Use pagination for large data sets
-- [502] Memo: Apply `React.memo` for expensive renders
-- [503] Markers: Optimize map marker rendering
-- [504] Queries: Optimize Supabase queries
+- [501] Efficiency: Paginate large data, memoize expensive renders, optimize map markers and queries.
 
 ## Error Handling
-- [601] Logging: Log errors with context
-- [602] User-Friendly: Provide clear error messages
-- [603] Network: Handle network failures gracefully
-- [604] Payment: Ensure robust payment error handling
+- [601] Errors: Log with context, provide clear messages, handle network failures gracefully, ensure payment error coverage.
 
 ## Security
-- [701] RLS: Use RLS except for anonymous session tracking
-- [701a] Anonymous: Allow public anonymous tracking without RLS
-- [702] Sensitive Data: Never expose in logs
-- [703] CORS: Implement proper CORS handling
-- [704] Payment: Secure all payment flows
+- [701] RLS & Anonymous: Use RLS except for anonymous tracking; never log sensitive data; handle CORS and secure payment flows.
 
 ## Authentication & Session Management
-- [751] Admin: `admin@libralab.ai` is the only authenticated user
-- [752] Anonymous Focus: All others tracked as leads
-- [753] No Extra Auth: Do not add more authentication
-- [754] Session Table: Track sessions in `map_analytics_events`
-- [755] Correlation: Use `session_id` for user journey
-- [756] Cleanup: Remove inactive sessions
-- [757] No PII: Store no personally identifiable info
-- [758] Conversions: Track conversion points
-- [759] Consistency: Maintain sessions across reloads
-- [760] Timeout: Implement session timeout
-- [761] No Roles: `admin@libralab.ai` is a normal user
-- [762] Anonymous: All others are anonymous leads
-- [763] No Extra Auth: Never suggest new methods
-- [764] Analytics: Focus on anonymous session data
-- [765] Admin Data Only: Don't store user data other than admin
+- [751] Single Admin: `admin@libralab.ai` is the only authenticated user.
+- [752] Anonymous Users: All others tracked as leads in `map_analytics_events`; store no PII; maintain session consistency; remove inactive sessions; use timeouts.
+- [753] No Extra Auth: Do not introduce additional auth methods or user roles.
+- [754] Admin Data Only: Never store user data other than admin.
 
 ## Git Workflow
-- [801] Commits: Use conventional commit messages
-- [802] Changelog: Update for all notable changes
-- [803] Migrations: Run in correct order
-- [804] Types: Update TS types after schema changes
+- [801] Commits & Changelog: Use conventional commit messages; maintain a changelog for notable updates.
+- [802] Migrations & TS: Run migrations in order; update TypeScript types after schema changes.
 
 ## UI/UX Guidelines
-- [901] Approval: No UI changes without user request
-- [902] Request-Driven: All UI changes must be prompted
-- [903] Consistency: Maintain consistent styles
-- [904] Accessibility: Include accessibility features
-- [905] Mobile-First: Prioritize responsive design
-- [906] Dark Mode: Provide a functioning dark mode
-- [907] Contrast: Ensure ≥4.5:1 color contrast; test all states in both modes
-- [908] Third-party Components: Document usage, specificity needs, selectors, and any `!important` rules; note CSS vs styled-components
-- [909] CSS Overrides: Use direct selectors if Tailwind fails; document RGB usage, `!important` cases, and library conflicts
+- [901] Approval: No UI changes without explicit user request.
+- [903] Consistency & Accessibility: Keep styles uniform; include accessibility; prioritize mobile-first.
+- [906] Dark Mode & Contrast: Provide functioning dark mode; ensure ≥4.5:1 contrast; test all states.
+- [908] Third-Party Components: Document usage/selectors; note `!important` overrides and CSS/styled-components differences.
+- [909] CSS Overrides: Use direct selectors if Tailwind is insufficient; track `!important` usage and library conflicts.
 
 ## Documentation Guidelines
-- [1001] Comments: Document non-obvious code
-- [1002] README: Keep setup instructions current
-- [1003] Env Vars: Provide `.env.example` details
-- [1004] JSDoc: Add to all public functions/interfaces
-- [1005] Examples: Provide usage demos for complex components
-- [1006] Schema: Document Supabase tables and relationships
-- [1007] API Changes: Maintain changelog for updates
-- [1008] Chart Config: Document chart options
-- [1009] Map Config: Document map settings
-- [1010] Performance: Note concerns for large data
+- [1001] Comments: Document non-obvious code; keep `README` and `.env.example` current.
+- [1004] JSDoc & Examples: Document public functions/interfaces; provide usage demos for complex components.
+- [1006] Schema & API: Keep Supabase schema, relationships, and changelog updated; document chart/map config.
 
 ## Database Schema Access
-- [1101] Request Schema: Use the provided SQL queries
-- [1102] Verification: Don’t rely solely on migrations
-- [1103] Sync: Request schema before modifying TS types
-- [1104] Constraints: Confirm foreign keys and constraints first
+- [1101] Verification: Always request current schema info; confirm constraints before changing TS types.
 
 ## Error Resolution Strategy
-- [1201] Root Cause: Investigate thoroughly before changes
-- [1202] Minimal Fix: Start with the smallest viable solution
-- [1203] Planning: Outline migration plans with rollback options
+- [1201] Root Cause: Investigate thoroughly first; apply minimal necessary fix; plan migrations with rollback.
 
 ## Component Reuse & Organization
-- [8001] Avoid Dupes: Search the codebase before adding new elements
-- [8002] Shared UI: Centralize common badges/elements with theming
+- [8001] Avoid Dupes: Search existing code and shared UI for reuse.
+- [8002] Centralize: Place common badges/elements in shared components.
+
+## Technical Changes vs UI Impact
+- [910] Evaluate UI: Data changes must be checked for UI effects.
+- [911] Preserve Interfaces: Don’t alter data interfaces without approval.
+- [912] Breaking Changes: Require user sign-off for changes affecting UI.
+- [913] Dependencies: Document UI dependencies on data structures.
+
+## Change Scope Control
+- [920] Single Responsibility: Each change addresses one purpose; avoid scope creep.
+- [922] Isolate Tech: Separate technical updates from UI modifications.
+- [923] Preserve Features: Maintain existing functionality unless explicitly removed.
+
+## Documentation & Review
+- [930] Potential Impact: Document any UI impacts from data changes.
+- [931] Mapping: Keep references of data-to-UI dependencies.
+- [932] Validation: Review changes for unintended UI side effects.
 
 ## Windsurf-Specific
-- [9001] .windsurfrules: Suggest best-practice additions automatically
-- [9002] Rule Drafts: Provide markdown drafts only; do not edit `.windsurfrules` directly
+- [9001] .windsurfrules: Suggest best-practice additions automatically.
+- [9002] Rule Drafts: Provide markdown drafts only; do not edit `.windsurfrules` directly.
