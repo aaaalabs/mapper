@@ -1,9 +1,10 @@
 import axios from 'axios';
 import RevolutCheckout from '@revolut/checkout';
 import { supabase } from '../lib/supabase';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from './analytics';
+import { ANALYTICS_EVENTS } from './analytics';
 import { v4 as uuidv4 } from 'uuid';
-import type { CreatePaymentOrderDTO, PaymentOrder } from '../types/payment';
-import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
+import type { CreatePaymentOrderDTO, PaymentOrder, PaymentConfig } from '../types/payment';
 import type { Database } from '../types/supabase';
 
 // API client configuration
@@ -72,12 +73,16 @@ const getOrCreateAnonymousSession = async () => {
   const storedSessionId = localStorage.getItem('anonymous_session_id');
   
   if (storedSessionId) {
-    const { data: session } = await supabase
+    const { data: session, error } = await supabase
       .from('map_sessions')
       .select('*')
       .eq('id', storedSessionId)
       .single();
     
+    if (error) {
+      throw new Error('Failed to fetch session');
+    }
+
     if (session && session.status === 'active') {
       return session.id;
     }
@@ -93,7 +98,9 @@ const getOrCreateAnonymousSession = async () => {
     .select()
     .single();
     
-  if (error) throw new Error('Failed to create anonymous session');
+  if (error) {
+    throw new Error('Failed to create anonymous session');
+  }
   
   // Store session ID in localStorage
   localStorage.setItem('anonymous_session_id', newSession.id);
@@ -147,10 +154,14 @@ export const createRevolutOrder = async (orderData: CreatePaymentOrderDTO): Prom
       .select()
       .single();
 
-    if (error || !order) {
-      console.error('Failed to create order in Supabase:', error);
-      throw new Error('Failed to create payment order');
+    if (error) {
+      throw new Error('Failed to create order in Supabase');
     }
+
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.CREATED,
+      event_data: { amount: orderData.amount, orderId: order.id }
+    });
 
     return {
       publicId: revolutResponse.data.public_id,
@@ -158,7 +169,11 @@ export const createRevolutOrder = async (orderData: CreatePaymentOrderDTO): Prom
       order
     };
   } catch (error) {
-    console.error('Error creating payment order:', error);
+    await trackError(error instanceof Error ? error : new Error('Failed to create payment order'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata: { amount: orderData.amount }
+    });
     throw error;
   }
 };
@@ -175,7 +190,11 @@ export const updateOrderStatus = async (merchantOrderRef: string, status: Paymen
       throw new Error(`Failed to update order status: ${error.message}`);
     }
   } catch (error) {
-    console.error('Error updating order status:', error);
+    await trackError(error instanceof Error ? error : new Error('Failed to update order status'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata: { merchantOrderRef, status }
+    });
     throw error;
   }
 };
@@ -195,18 +214,26 @@ export const getOrderByRef = async (merchantOrderRef: string): Promise<PaymentOr
 
     return data;
   } catch (error) {
-    console.error('Error fetching order:', error);
+    await trackError(error instanceof Error ? error : new Error('Failed to fetch order'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.MEDIUM,
+      metadata: { merchantOrderRef }
+    });
     throw error;
   }
 };
 
 type PaymentOrderUpdate = Database['public']['Tables']['map_payment_orders']['Update'];
 
-const getPaymentConfig = async () => {
-  const { data } = await supabase
+const getPaymentConfig = async (): Promise<PaymentConfig> => {
+  const { data, error } = await supabase
     .from('map_admin_settings')
     .select('settings')
     .single();
+
+  if (error) {
+    throw new Error('Failed to fetch payment configuration');
+  }
 
   const settings = data?.settings || { paymentEnvironment: 'sandbox', enablePaymentLogging: true };
   
@@ -220,20 +247,50 @@ const getPaymentConfig = async () => {
 
   return {
     apiKey,
-    enableLogging: settings.enablePaymentLogging
+    enableLogging: settings.enablePaymentLogging ?? true
   };
 };
 
+export async function processPayment(amount: number, currency: string) {
+  try {
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.CREATED,
+      event_data: { amount, currency }
+    });
+
+    // Payment processing logic here
+
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.COMPLETED,
+      event_data: { amount, currency }
+    });
+  } catch (error) {
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.FAILED,
+      event_data: { 
+        amount, 
+        currency, 
+        error: error instanceof Error ? error.message : String(error) 
+      }
+    });
+
+    await trackError(error instanceof Error ? error : new Error('Payment processing failed'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata: { amount, currency }
+    });
+    throw error;
+  }
+}
+
 export const createPaymentOrder = async (amount: number): Promise<string> => {
   try {
-    const config = await getPaymentConfig();
+    await getPaymentConfig();
     
-    if (config.enableLogging) {
-      console.log('Creating payment order:', { 
-        amount, 
-        environment: config.apiKey.startsWith('sk_sandbox') ? 'sandbox' : 'production' 
-      });
-    }
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.INITIATED,
+      event_data: { amount }
+    });
 
     // Generate a unique merchant order reference
     const merchantOrderRef = `order_${uuidv4()}`;
@@ -264,14 +321,22 @@ export const createPaymentOrder = async (amount: number): Promise<string> => {
       .select()
       .single();
 
-    if (error || !order) {
-      console.error('Failed to create order in Supabase:', error);
-      throw new Error('Failed to create payment order');
+    if (error) {
+      throw new Error('Failed to create order in Supabase');
     }
+
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.ORDER.CREATED,
+      event_data: { amount, orderId: order.id }
+    });
 
     return revolutResponse.data.public_id;
   } catch (error) {
-    console.error('Error creating payment order:', error);
+    await trackError(error instanceof Error ? error : new Error('Failed to create payment order'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata: { amount }
+    });
     throw error;
   }
 };
@@ -294,19 +359,15 @@ const updatePaymentOrder = async (orderId: string, status: PaymentOrder['status'
     if (error) throw error;
     return data;
   } catch (error) {
-    await trackErrorWithContext(
-      error instanceof Error ? error : new Error('Failed to update payment order'),
-      {
-        category: 'PAYMENT',
-        subcategory: 'PROCESS',
-        severity: ErrorSeverity.HIGH,
-        metadata: {
-          orderId,
-          status,
-          metadata: JSON.stringify(metadata)
-        }
+    await trackError(error instanceof Error ? error : new Error('Failed to update payment order'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata: {
+        orderId,
+        status,
+        metadata: JSON.stringify(metadata)
       }
-    );
+    });
     throw error;
   }
 };
@@ -326,15 +387,11 @@ const getPaymentOrder = async (orderId: string): Promise<PaymentOrder | null> =>
 
     return data;
   } catch (error) {
-    await trackErrorWithContext(
-      error instanceof Error ? error : new Error('Failed to get payment order'),
-      {
-        category: 'PAYMENT',
-        subcategory: 'FETCH',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: { orderId }
-      }
-    );
+    await trackError(error instanceof Error ? error : new Error('Failed to get payment order'), {
+      category: ERROR_CATEGORY.PAYMENT,
+      severity: ERROR_SEVERITY.MEDIUM,
+      metadata: { orderId }
+    });
     throw error;
   }
 };

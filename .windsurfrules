@@ -1,168 +1,120 @@
 # Mapper Development Rules
-Every time you choose to apply a rule(s), explicitly state the rule number in the output. You can abbreviate the rule description to a single word or phrase.
+Every time you apply a rule, explicitly state its rule number in the output.  
+(You may abbreviate the rule description to a single word or phrase.)
 
-# Project Context
-Mapper is a modern web application for interactive data visualization and analytics with the following key features:
-- Interactive map visualization with clustering and custom markers
-- Advanced data analytics with Nivo/Recharts charts
-- Secure payment processing via Revolut
-- Real-time data management with Supabase
-- Mobile-first responsive design
-- Anonymous user session tracking
-- Public access to visualization features
+---
 
-## Tech Infrastructure
-- Frontend: React 18 with TypeScript
-- Database: Supabase
-- Visualization: Leaflet, Nivo, Recharts
-- Styling: Tailwind CSS
-- Build Tool: Vite
-- Payment: Revolut Integration
-- Routing: React Router
+## Code Organization
+- [001] Components: Use `src/components/{feature}/`
+- [002] Table Prefix: Supabase tables must be `map_` or `maps_`
+- [003] Hooks: Reusable hooks in `src/hooks/` with `use` prefix
+- [004] Types: All type definitions in `src/types/` with proper namespacing
+- [005] Scope: Keep changes minimal; reuse existing solutions
 
-## Code Style and Structure
-- Write concise, technical TypeScript code with accurate examples
-- Use functional and declarative programming patterns; avoid classes
-- Prefer iteration and modularization over code duplication
-- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
+## TypeScript Best Practices
+- [101] Returns: Use explicit return types
+- [102] Interfaces: Prefer interfaces over types
+- [103] Unions: Use discriminated unions for complex states
+- [104] Strict: Enforce strict null checks
 
-## Repository Structure
-mapper/ 
-├── src/ 
-   ├── components/ # React components 
-       ├── ui/ # Shared UI components 
-       ├── map/ # Map-related components 
-       ├── charts/ # Data visualization components 
-       └── payment/ # Payment-related components 
-   ├── services/ # API and business logic 
-   ├── hooks/ # Custom React hooks 
-   ├── utils/ # Helper functions 
-   ├── types/ # TypeScript types 
-   ├── lib/ # Shared libraries 
-└── assets/ # Static assets 
-├── api/ # API routes 
-├── supabase/ # Database migrations and config 
-└── public/ # Static files
+## Component Guidelines
+- [201] Split: Break down components > 100 lines
+- [202] Hooks: Use custom hooks for complex logic
+- [203] Cleanup: Implement proper `useEffect` cleanup
+- [204] Boundaries: Use error boundaries for map/chart errors
 
+## Data Visualization
+- [301] Theme: Maintain consistent chart theming
+- [302] Typed Data: Ensure proper TS types for chart data
+- [303] Loading: Show loading states for all visualizations
+- [304] Empty/Error: Gracefully handle empty/error states
 
-# Code Organization
-[001] Use src/components/{feature}/ structure for related components
-[002] Keep all Supabase table names prefixed with map_ or maps_
-[003] Place all reusable hooks in src/hooks/ with use prefix
-[004] Place all type definitions in src/types/ with proper namespacing
-[005] Keep code changes minimal and focused on immediate user value; only implement what's needed for the current task and prefer simple, direct solutions using existing components and styles.
+## Map Interactions
+- [401] Zoom: Set appropriate zoom levels
+- [402] Clustering: Cluster large datasets
+- [403] Boundaries: Handle map boundary edge cases
+- [404] Caching: Cache map data when appropriate
 
-# TypeScript Best Practices
-[101] Use explicit return types for all functions
-[102] Use interfaces over types for object definitions
-[103] Use discriminated unions for complex state management
-[104] Use strict null checks
+## Performance
+- [501] Pagination: Use pagination for large data sets
+- [502] Memo: Apply `React.memo` for expensive renders
+- [503] Markers: Optimize map marker rendering
+- [504] Queries: Optimize Supabase queries
 
-# Component Guidelines
-[201] Split components when they exceed 100 lines
-[202] Use custom hooks for complex state logic
-[203] Implement proper cleanup in useEffect
-[204] Use proper error boundaries for map and chart components
+## Error Handling
+- [601] Logging: Log errors with context
+- [602] User-Friendly: Provide clear error messages
+- [603] Network: Handle network failures gracefully
+- [604] Payment: Ensure robust payment error handling
 
-# Data Visualization
-[301] Maintain consistent chart theming across the application
-[302] Use proper TypeScript types for chart data
-[303] Implement loading states for all data visualizations
-[304] Handle empty/error states gracefully
+## Security
+- [701] RLS: Use RLS except for anonymous session tracking
+- [701a] Anonymous: Allow public anonymous tracking without RLS
+- [702] Sensitive Data: Never expose in logs
+- [703] CORS: Implement proper CORS handling
+- [704] Payment: Secure all payment flows
 
-# Map Interactions
-[401] Use proper zoom levels for map interactions
-[402] Implement clustering for large datasets
-[403] Handle map boundary cases
-[404] Cache map data when appropriate
+## Authentication & Session Management
+- [751] Admin: `admin@libralab.ai` is the only authenticated user
+- [752] Anonymous Focus: All others tracked as leads
+- [753] No Extra Auth: Do not add more authentication
+- [754] Session Table: Track sessions in `map_analytics_events`
+- [755] Correlation: Use `session_id` for user journey
+- [756] Cleanup: Remove inactive sessions
+- [757] No PII: Store no personally identifiable info
+- [758] Conversions: Track conversion points
+- [759] Consistency: Maintain sessions across reloads
+- [760] Timeout: Implement session timeout
+- [761] No Roles: `admin@libralab.ai` is a normal user
+- [762] Anonymous: All others are anonymous leads
+- [763] No Extra Auth: Never suggest new methods
+- [764] Analytics: Focus on anonymous session data
+- [765] Admin Data Only: Don't store user data other than admin
 
-# Performance
-[501] Implement proper data pagination
-[502] Use React.memo for expensive renders
-[503] Optimize map marker rendering
-[504] Use proper Supabase query optimization
+## Git Workflow
+- [801] Commits: Use conventional commit messages
+- [802] Changelog: Update for all notable changes
+- [803] Migrations: Run in correct order
+- [804] Types: Update TS types after schema changes
 
-# Error Handling
-[601] Log all errors with proper context
-[602] Provide user-friendly error messages
-[603] Handle network failures gracefully
-[604] Implement proper payment error handling
+## UI/UX Guidelines
+- [901] Approval: No UI changes without user request
+- [902] Request-Driven: All UI changes must be prompted
+- [903] Consistency: Maintain consistent styles
+- [904] Accessibility: Include accessibility features
+- [905] Mobile-First: Prioritize responsive design
+- [906] Dark Mode: Provide a functioning dark mode
+- [907] Contrast: Ensure ≥4.5:1 color contrast; test all states in both modes
+- [908] Third-party Components: Document usage, specificity needs, selectors, and any `!important` rules; note CSS vs styled-components
+- [909] CSS Overrides: Use direct selectors if Tailwind fails; document RGB usage, `!important` cases, and library conflicts
 
-# Security
-[701] Use proper Supabase RLS policies EXCEPT for anonymous user tracking
-[701a] Anonymous sessions must be tracked without RLS for public access
-[702] Never expose sensitive data in logs
-[703] Implement proper CORS handling
-[704] Secure all payment flows
+## Documentation Guidelines
+- [1001] Comments: Document non-obvious code
+- [1002] README: Keep setup instructions current
+- [1003] Env Vars: Provide `.env.example` details
+- [1004] JSDoc: Add to all public functions/interfaces
+- [1005] Examples: Provide usage demos for complex components
+- [1006] Schema: Document Supabase tables and relationships
+- [1007] API Changes: Maintain changelog for updates
+- [1008] Chart Config: Document chart options
+- [1009] Map Config: Document map settings
+- [1010] Performance: Note concerns for large data
 
-# Authentication and Session Management
-[751] Use admin@libralab.ai as the only authenticated user (admin role not required)
-[752] Focus on anonymous session tracking for leads instead of user authentication
-[753] Do not implement additional user authentication functions
-[754] Track all anonymous sessions in map_analytics_events table
-[755] Use session_id for correlating user journey and actions
-[756] Implement proper session cleanup for inactive sessions
-[757] Store only non-personally identifiable information in sessions
-[758] Track conversion points throughout the user journey
-[759] Maintain session consistency across page reloads
-[760] Use proper session timeout handling
-[761] There is no concept of user roles or permissions - admin@libralab.ai is a regular user
-[762] All visitors except admin@libralab.ai must be treated as anonymous leads
-[763] Never implement or suggest implementing additional authentication methods
-[764] Focus on session tracking and analytics for anonymous users
-[765] Do not store any user-specific data except for admin@libralab.ai
+## Database Schema Access
+- [1101] Request Schema: Use the provided SQL queries
+- [1102] Verification: Don’t rely solely on migrations
+- [1103] Sync: Request schema before modifying TS types
+- [1104] Constraints: Confirm foreign keys and constraints first
 
-# Git Workflow
-[801] Use conventional commit messages
-[802] Update changelog for all notable changes
-[803] Run migrations in correct order
-[804] Update types after schema changes
+## Error Resolution Strategy
+- [1201] Root Cause: Investigate thoroughly before changes
+- [1202] Minimal Fix: Start with the smallest viable solution
+- [1203] Planning: Outline migration plans with rollback options
 
-# UI/UX Guidelines
-[901] Never modify UI without explicit user approval
-[902] All UI changes must be requested or commanded by the user
-[903] Use consistent UI styles across the application
-[904] Use proper accessibility features for all components
-[905] Follow mobile-first approach for all component designs
-[906] Make sure that there is always a working dark mode variant with contrasting colors of the UI
-[907] Maintain color contrast in all UI states:
-- Light text on dark backgrounds, dark text on light backgrounds (≥4.5:1 ratio)
-- Preserve text/background contrast in all interactive states (hover, active, disabled)
-- Mirror color relationships in dark mode using CSS custom properties
-- Test all states in both modes before implementation
+## Component Reuse & Organization
+- [8001] Avoid Dupes: Search the codebase before adding new elements
+- [8002] Shared UI: Centralize common badges/elements with theming
 
-# Documentation Guidelines
-[1001] Document all non-obvious code with inline comments
-[1002] Keep README.md up-to-date with setup and development instructions
-[1003] Document all environment variables in .env.example
-[1004] Add JSDoc comments for all public functions and interfaces
-[1005] Include examples for complex component usage
-[1006] Document all Supabase table schemas and relationships
-[1007] Maintain changelog for all API changes
-[1008] Document all chart configuration options
-[1009] Keep map configuration options documented
-[1010] Document performance considerations for data-heavy features
-
-# Component Reuse and Organization
-[8001] Always check for existing elements, files, or components in the codebase before creating new ones to avoid duplicates
-- Search through the entire codebase for similar implementations
-- Check component libraries and shared UI folders first
-- Document any decisions to create new components vs reusing existing ones
-- Consider refactoring similar components into a single reusable one
-
-[8002] Create centralized UI elements like badges when used across multiple pages
-- Implement with proper light and dark mode support
-- Place in shared ui components directory
-- Use semantic color tokens for theme consistency
-- Include proper TypeScript types and documentation
-- Add usage examples in component comments
-
-# Windsurf Specific Rules
-[9001] Automatically suggest additions for .windsurfrules where best practices are used during the development process
-
-[9002] When requesting new Windsurf rules, provide drafts only
-- Present rules as a markdown draft for review
-- Do not attempt to modify .windsurfrules directly
-- Allow the user to manually copy and integrate rules
-- Include clear descriptions and examples
-- Follow existing rule numbering convention
+## Windsurf-Specific
+- [9001] .windsurfrules: Suggest best-practice additions automatically
+- [9002] Rule Drafts: Provide markdown drafts only; do not edit `.windsurfrules` directly

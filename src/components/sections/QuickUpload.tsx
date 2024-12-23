@@ -14,11 +14,11 @@ import { cn } from '../../lib/utils';
 import { FeedbackForm } from '../FeedbackForm';
 import { createMap, trackMapDownload, updateMapName } from '../../services/mapService';
 import { ShareModal } from '../ShareModal';
-import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from '../../services/analytics';
+import { ANALYTICS_EVENTS } from '../../services/analytics';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { MapSettings } from '../../types/mapSettings';
 import { supabase } from '../../lib/supabase';
-import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from '../../services/errorTracking';
 
 interface QuickUploadProps {
   onMapCreated: (mapId: string, mapName: string, shareLink: string) => void;
@@ -135,10 +135,9 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
 
       const newCenter = calculateMapCenter(data);
       if (!newCenter) {
-        trackErrorWithContext(new Error('Failed to calculate map center'), {
-          category: ErrorCategory.GEOCODING,
-          subcategory: 'COORDINATE_LOOKUP',
-          severity: ErrorSeverity.HIGH,
+        trackError(new Error('Failed to calculate map center'), {
+          category: ERROR_CATEGORY.GEOCODING,
+          severity: ERROR_SEVERITY.HIGH,
           metadata: {
             fileSize: file.size,
             recordCount: data.length,
@@ -196,10 +195,9 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
         throw error; // Re-throw to be caught by outer catch block
       }
     } catch (err) {
-      trackErrorWithContext(err instanceof Error ? err : new Error('Map generation failed'), {
-        category: ErrorCategory.MAP,
-        subcategory: 'CREATE',
-        severity: ErrorSeverity.HIGH,
+      trackError(err instanceof Error ? err : new Error('Map generation failed'), {
+        category: ERROR_CATEGORY.MAP,
+        severity: ERROR_SEVERITY.HIGH,
         metadata: {
           fileName: file.name,
           fileSize: file.size,
@@ -478,17 +476,23 @@ export function QuickUpload({ onMapCreated }: QuickUploadProps) {
         </OverlayContent>
       </Overlay>
 
-      <Overlay isOpen={showShare} onClose={() => setShowShare(false)}>
-        {currentMapId && (
-          <ShareModal
-            isOpen={showShare}
-            mapId={currentMapId}
-            onClose={() => setShowShare(false)}
-            initialMapName={mapName}
-          />
-        )}
-      </Overlay>
+      {/* Share Modal */}
+      {currentMapId && (
+        <ShareModal
+          isOpen={showShare}
+          mapId={currentMapId}
+          onClose={() => setShowShare(false)}
+          initialMapName={mapName}
+        >
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">
+              Your map has been created successfully! Share it with your community.
+            </p>
+          </div>
+        </ShareModal>
+      )}
 
+      {/* Feedback Form */}
       <Overlay isOpen={false} onClose={() => {}}>
         <OverlayContent>
           <FeedbackForm

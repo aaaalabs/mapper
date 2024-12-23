@@ -37,11 +37,19 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   };
 
+  const handleRequestAccess = () => {
+    onClose();
+    const betaSection = document.getElementById('beta-features');
+    if (betaSection) {
+      betaSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose}>
-      <div className="relative">
+      <div className="relative bg-background rounded-lg shadow-lg w-full max-w-md">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
@@ -53,10 +61,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         <div className="p-6">
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-foreground">
-              Admin Login
+              Sign In
             </h3>
             <p className="text-sm text-muted-foreground">
-              Please sign in to access the admin dashboard
+              Enter your credentials to access your account
             </p>
           </div>
 
@@ -87,9 +95,17 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex flex-col space-y-3">
               <Button type="submit" isLoading={loading}>
                 Sign In
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleRequestAccess}
+                className="w-full"
+              >
+                Request Access
               </Button>
             </div>
           </form>

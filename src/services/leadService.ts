@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from './analytics';
+import { trackEvent, trackError } from './analytics';
 import type { Lead, LeadInsert, LeadUpdate, MapLead } from '../types/lead';
 
 export type LeadType = 'beta_waitlist' | 'data_extraction';
@@ -55,31 +55,22 @@ export const createLead = async (data: Omit<LeadInsert, 'updated_at'>): Promise<
       .single();
 
     if (error) {
-      trackErrorWithContext(new Error(`Failed to create lead: ${error.message}`), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'CREATION',
-        severity: ErrorSeverity.HIGH,
-        metadata: {
-          leadData: data,
-          error: error.message
-        }
+      await trackError(new Error(`Failed to create lead: ${error.message}`), {
+        category: 'lead',
+        severity: 'high',
+        metadata: { email: data.email, leadType: data.lead_type }
       });
-      throw error;
+      return null;
     }
 
     return lead;
   } catch (error) {
-    console.error('Error creating lead:', error);
-    trackErrorWithContext(error instanceof Error ? error : new Error('Lead creation failed'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'CREATION',
-      severity: ErrorSeverity.HIGH,
-      metadata: {
-        leadData: data,
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Lead creation failed'), {
+      category: 'lead',
+      severity: 'high',
+      metadata: { email: data.email, leadType: data.lead_type }
     });
-    throw error;
+    return null;
   }
 };
 
@@ -96,29 +87,18 @@ export const updateLead = async (id: string, updates: Omit<LeadUpdate, 'updated_
       .eq('id', id);
 
     if (error) {
-      trackErrorWithContext(new Error(`Failed to update lead: ${error.message}`), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'UPDATE',
-        severity: ErrorSeverity.HIGH,
-        metadata: {
-          leadId: id,
-          updates,
-          error: error.message,
-          code: error.code
-        }
+      await trackError(new Error(`Failed to update lead: ${error.message}`), {
+        category: 'lead',
+        severity: 'high',
+        metadata: { leadId: id, updates }
       });
       throw error;
     }
   } catch (error) {
-    trackErrorWithContext(error instanceof Error ? error : new Error('Lead update failed'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'UPDATE',
-      severity: ErrorSeverity.HIGH,
-      metadata: {
-        leadId: id,
-        updates,
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Lead update failed'), {
+      category: 'lead',
+      severity: 'high',
+      metadata: { leadId: id, updates }
     });
     throw error;
   }
@@ -142,29 +122,20 @@ export const findLeadByEmail = async (email: string): Promise<Lead | null> => {
         // No results found
         return null;
       }
-      trackErrorWithContext(new Error(`Failed to find lead: ${error.message}`), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'FIND',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: {
-          email,
-          error: error.message,
-          code: error.code
-        }
+      await trackError(new Error(`Failed to find lead: ${error.message}`), {
+        category: 'lead',
+        severity: 'medium',
+        metadata: { email }
       });
       throw error;
     }
 
     return data;
   } catch (error) {
-    trackErrorWithContext(error instanceof Error ? error : new Error('Lead find failed'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'FIND',
-      severity: ErrorSeverity.MEDIUM,
-      metadata: {
-        email,
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Lead find failed'), {
+      category: 'lead',
+      severity: 'medium',
+      metadata: { email }
     });
     return null; // Return null instead of throwing to make this operation non-blocking
   }
@@ -184,29 +155,18 @@ export const associateLeadWithFeedback = async (leadId: string, feedbackId: stri
       .eq('id', leadId);
 
     if (error) {
-      trackErrorWithContext(new Error(`Failed to associate lead with feedback: ${error.message}`), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'ASSOCIATE',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: {
-          leadId,
-          feedbackId,
-          error: error.message,
-          code: error.code
-        }
+      await trackError(new Error(`Failed to associate lead with feedback: ${error.message}`), {
+        category: 'lead',
+        severity: 'medium',
+        metadata: { leadId, feedbackId }
       });
       // Don't throw, just log the error
     }
   } catch (error) {
-    trackErrorWithContext(error instanceof Error ? error : new Error('Lead association failed'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'ASSOCIATE',
-      severity: ErrorSeverity.MEDIUM,
-      metadata: {
-        leadId,
-        feedbackId,
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Lead association failed'), {
+      category: 'lead',
+      severity: 'medium',
+      metadata: { leadId, feedbackId }
     });
     // Don't throw, just log the error
   }
@@ -237,16 +197,10 @@ export const trackLeadInteraction = async (
       await updateLead(lead.id!, { event_data: updatedEventData });
     }
   } catch (error) {
-    trackErrorWithContext(error instanceof Error ? error : new Error('Lead interaction tracking failed'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'INTERACTION',
-      severity: ErrorSeverity.MEDIUM,
-      metadata: {
-        email,
-        interactionType,
-        event_data,
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Lead interaction tracking failed'), {
+      category: 'lead',
+      severity: 'medium',
+      metadata: { email, interactionType, event_data }
     });
     throw error;
   }
@@ -261,10 +215,9 @@ export const getLeads = async (): Promise<Lead[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      trackErrorWithContext(new Error(`Failed to fetch leads: ${error.message}`), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'FETCH',
-        severity: ErrorSeverity.HIGH,
+      await trackError(new Error(`Failed to fetch leads: ${error.message}`), {
+        category: 'lead',
+        severity: 'high',
         metadata: { error: error.message }
       });
       throw error;
@@ -273,13 +226,10 @@ export const getLeads = async (): Promise<Lead[]> => {
     return leads;
   } catch (error) {
     console.error('Error fetching leads:', error);
-    trackErrorWithContext(error instanceof Error ? error : new Error('Failed to fetch leads'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'FETCH',
-      severity: ErrorSeverity.HIGH,
-      metadata: {
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Failed to fetch leads'), {
+      category: 'lead',
+      severity: 'high',
+      metadata: { error: error.message }
     });
     throw error;
   }
@@ -295,14 +245,10 @@ export const getLeadsBySession = async (sessionId: string): Promise<Lead[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      trackErrorWithContext(new Error(`Failed to fetch leads by session: ${error.message}`), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'FETCH_BY_SESSION',
-        severity: ErrorSeverity.HIGH,
-        metadata: { 
-          sessionId,
-          error: error.message 
-        }
+      await trackError(new Error(`Failed to fetch leads by session: ${error.message}`), {
+        category: 'lead',
+        severity: 'high',
+        metadata: { sessionId, error: error.message }
       });
       throw error;
     }
@@ -310,14 +256,10 @@ export const getLeadsBySession = async (sessionId: string): Promise<Lead[]> => {
     return leads;
   } catch (error) {
     console.error('Error fetching leads by session:', error);
-    trackErrorWithContext(error instanceof Error ? error : new Error('Failed to fetch leads by session'), {
-      category: ErrorCategory.LEAD,
-      subcategory: 'FETCH_BY_SESSION',
-      severity: ErrorSeverity.HIGH,
-      metadata: {
-        sessionId,
-        error: error instanceof Error ? error.message : String(error)
-      }
+    await trackError(error instanceof Error ? error : new Error('Failed to fetch leads by session'), {
+      category: 'lead',
+      severity: 'high',
+      metadata: { sessionId, error: error.message }
     });
     throw error;
   }

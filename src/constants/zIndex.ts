@@ -25,6 +25,8 @@ export const Z_INDEX = {
   MODAL_BACKDROP: 1500,
   MODAL_CONTENT: 1600,
   DROPDOWN_MENU: 1700,
+  SHARE_MODAL_BACKDROP: 1800,
+  SHARE_MODAL_CONTENT: 1900,
   
   // Auth modals (should be above regular modals)
   AUTH_MODAL_BACKDROP: 2000,

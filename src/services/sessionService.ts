@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Session } from '../types/payment';
-import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from './analytics';
+import { ANALYTICS_EVENTS } from './analytics';
 import type { Database } from '../types/supabase';
 
 type SessionInsert = Database['public']['Tables']['map_sessions']['Insert'];
@@ -8,8 +9,9 @@ type SessionUpdate = Database['public']['Tables']['map_sessions']['Update'];
 
 const createSession = async (metadata?: Record<string, any>): Promise<Session> => {
   try {
+    const session_id = crypto.randomUUID();
     const insertData: SessionInsert = {
-      id: crypto.randomUUID(),
+      id: session_id,
       status: 'active',
       metadata: metadata || {},
     };
@@ -21,17 +23,19 @@ const createSession = async (metadata?: Record<string, any>): Promise<Session> =
       .single();
 
     if (error) throw error;
+
+    await trackEvent({
+      event_name: ANALYTICS_EVENTS.SESSION.START,
+      event_data: { session_id, ...metadata }
+    });
+
     return data;
   } catch (error) {
-    await trackErrorWithContext(
-      error instanceof Error ? error : new Error('Failed to create session'),
-      {
-        category: 'SESSION',
-        subcategory: 'CREATION',
-        severity: ErrorSeverity.HIGH,
-        metadata
-      }
-    );
+    await trackError(error instanceof Error ? error : new Error('Failed to create session'), {
+      category: ERROR_CATEGORY.SYSTEM,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata
+    });
     throw error;
   }
 };
@@ -51,15 +55,11 @@ const getSession = async (sessionId: string): Promise<Session | null> => {
 
     return data;
   } catch (error) {
-    await trackErrorWithContext(
-      error instanceof Error ? error : new Error('Failed to get session'),
-      {
-        category: 'SESSION',
-        subcategory: 'FETCH',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: { sessionId }
-      }
-    );
+    await trackError(error instanceof Error ? error : new Error('Failed to get session'), {
+      category: ERROR_CATEGORY.SYSTEM,
+      severity: ERROR_SEVERITY.MEDIUM,
+      metadata: { sessionId }
+    });
     throw error;
   }
 };
@@ -81,18 +81,14 @@ const updateSession = async (sessionId: string, metadata: Record<string, any>): 
     if (error) throw error;
     return data;
   } catch (error) {
-    await trackErrorWithContext(
-      error instanceof Error ? error : new Error('Failed to update session'),
-      {
-        category: 'SESSION',
-        subcategory: 'UPDATE',
-        severity: ErrorSeverity.HIGH,
-        metadata: {
-          sessionId,
-          metadata: JSON.stringify(metadata)
-        }
+    await trackError(error instanceof Error ? error : new Error('Failed to update session'), {
+      category: ERROR_CATEGORY.SYSTEM,
+      severity: ERROR_SEVERITY.HIGH,
+      metadata: {
+        sessionId,
+        metadata: JSON.stringify(metadata)
       }
-    );
+    });
     throw error;
   }
 };
@@ -114,15 +110,11 @@ const expireSession = async (sessionId: string): Promise<Session> => {
     if (error) throw error;
     return data;
   } catch (error) {
-    await trackErrorWithContext(
-      error instanceof Error ? error : new Error('Failed to expire session'),
-      {
-        category: 'SESSION',
-        subcategory: 'CLEANUP',
-        severity: ErrorSeverity.MEDIUM,
-        metadata: { sessionId }
-      }
-    );
+    await trackError(error instanceof Error ? error : new Error('Failed to expire session'), {
+      category: ERROR_CATEGORY.SYSTEM,
+      severity: ERROR_SEVERITY.MEDIUM,
+      metadata: { sessionId }
+    });
     throw error;
   }
 };

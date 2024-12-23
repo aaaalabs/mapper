@@ -1,3 +1,5 @@
+import { FeedbackMetadata, FeedbackType, FeedbackStatus } from './feedback';
+
 export interface Database {
   public: {
     Tables: {
@@ -63,69 +65,39 @@ export interface Database {
       map_feedback: {
         Row: {
           id: string;
+          map_id: string;
+          rating: number;
+          feedback_type: FeedbackType;
+          metadata: FeedbackMetadata;
           created_at: string;
           updated_at: string;
-          status: 'pending' | 'approved' | 'featured' | 'contacted' | 'archived';
-          metadata: {
-            email: string | null;
-            useCase?: string | null;
-            use_case?: string | null;
-            painPoint?: string | null;
-            canFeature?: boolean;
-            can_feature?: boolean;
-            feedbackText?: string | null;
-            testimonial?: string | null;
-            organization: string | null;
-            community_type?: string;
-            last_updated?: string;
-          };
-          rating?: number;
-          feedback_type?: 'positive' | 'negative' | 'neutral';
-          session_id?: string | null;
+          session_id: string | null;
+          user_id: string | null;
+          status: FeedbackStatus;
         };
         Insert: {
           id?: string;
+          map_id: string;
+          rating: number;
+          feedback_type: FeedbackType;
+          metadata?: FeedbackMetadata;
           created_at?: string;
           updated_at?: string;
-          status?: 'pending' | 'approved' | 'featured' | 'contacted' | 'archived';
-          metadata: {
-            email?: string | null;
-            useCase?: string | null;
-            use_case?: string | null;
-            painPoint?: string | null;
-            canFeature?: boolean;
-            can_feature?: boolean;
-            feedbackText?: string | null;
-            testimonial?: string | null;
-            organization?: string | null;
-            community_type?: string;
-            last_updated?: string;
-          };
-          rating?: number;
-          feedback_type?: 'positive' | 'negative' | 'neutral';
           session_id?: string | null;
+          user_id?: string | null;
+          status?: FeedbackStatus;
         };
         Update: {
           id?: string;
+          map_id?: string;
+          rating?: number;
+          feedback_type?: FeedbackType;
+          metadata?: FeedbackMetadata;
           created_at?: string;
           updated_at?: string;
-          status?: 'pending' | 'approved' | 'featured' | 'contacted' | 'archived';
-          metadata?: {
-            email?: string | null;
-            useCase?: string | null;
-            use_case?: string | null;
-            painPoint?: string | null;
-            canFeature?: boolean;
-            can_feature?: boolean;
-            feedbackText?: string | null;
-            testimonial?: string | null;
-            organization?: string | null;
-            community_type?: string;
-            last_updated?: string;
-          };
-          rating?: number;
-          feedback_type?: 'positive' | 'negative' | 'neutral';
           session_id?: string | null;
+          user_id?: string | null;
+          status?: FeedbackStatus;
         };
       };
       map_analytics_events: {

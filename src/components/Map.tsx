@@ -411,11 +411,20 @@ export const Map: React.FC<MapProps> = ({
       </div>
 
       {/* Share Modal */}
-      <ShareModal
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        mapId={mapId || 'demo'}
-      />
+      {mapId && (
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          mapId={mapId}
+          initialMapName={name}
+        >
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">
+              Share your map with your community or embed it on your website.
+            </p>
+          </div>
+        </ShareModal>
+      )}
     </div>
   );
 };

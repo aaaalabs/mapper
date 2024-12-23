@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { trackEvent, ANALYTICS_EVENTS, trackErrorWithContext, ErrorSeverity, ErrorCategory } from '../services/analytics';
+import { trackEvent, ANALYTICS_EVENTS, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from '../services/analytics';
 import { createLead } from '../services/leadService';
 
 export function OrderPage() {
@@ -29,8 +29,7 @@ export function OrderPage() {
           event_data: {
             skoolUid,
             source: 'order_page'
-          },
-          updated_at: new Date().toISOString()
+          }
         });
 
         // Track order completion view
@@ -38,16 +37,16 @@ export function OrderPage() {
           event_name: ANALYTICS_EVENTS.ORDER.COMPLETION_VIEW,
           event_data: {
             service: 'data_extraction',
-            skoolUid
-          },
-          session_id: sessionId
+            skoolUid,
+            session_id: sessionId
+          }
         });
       } catch (error) {
         console.error('Error processing order:', error);
-        trackErrorWithContext(error instanceof Error ? error : new Error('Failed to process order'), {
-          category: ErrorCategory.LEAD,
+        trackError(error instanceof Error ? error : new Error('Failed to process order'), {
+          category: ERROR_CATEGORY.LEAD,
           subcategory: 'ORDER',
-          severity: ErrorSeverity.HIGH,
+          severity: ERROR_SEVERITY.HIGH,
           metadata: {
             email,
             name,

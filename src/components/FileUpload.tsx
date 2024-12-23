@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, AlertCircle, CheckCircle2, FileDown } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
-import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY, ANALYTICS_EVENTS } from '../services/analytics';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
   className?: string;
+  onUploadComplete?: (result: { success: boolean; error?: string; data?: any }) => void;
 }
 
 interface FileError {
@@ -17,7 +17,13 @@ interface FileError {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const REQUIRED_COLUMNS = ['name', 'location', 'latitude', 'longitude'];
 
-export function FileUpload({ onFileSelect, className }: FileUploadProps) {
+interface ProcessFileResult {
+  success: boolean;
+  error?: string;
+  data?: any;
+}
+
+export function FileUpload({ onFileSelect, className, onUploadComplete }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<FileError | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -108,7 +114,7 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
     setIsDragging(false);
   }, []);
 
-  const processFile = async (file: File) => {
+  const processFile = async (file: File): Promise<ProcessFileResult> => {
     setIsUploading(true);
     setUploadSuccess(false);
     
@@ -126,6 +132,15 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
           event_name: ANALYTICS_EVENTS.MAP.CREATION.COMPLETED,
           event_data: { filename: file.name, fileSize: file.size }
         });
+        return {
+          success: true,
+          data: file
+        };
+      } else {
+        return {
+          success: false,
+          error: 'File validation failed'
+        };
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error processing file. Please try again.";
@@ -139,18 +154,18 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
         event_data: { error: errorMessage }
       });
 
-      await trackErrorWithContext(
-        err instanceof Error ? err : new Error(errorMessage),
-        {
-          category: 'MAP',
-          subcategory: 'FILE_UPLOAD',
-          severity: ErrorSeverity.HIGH,
-          metadata: {
-            fileSize: file.size.toString(),
-            fileName: file.name
-          }
+      await trackError(err instanceof Error ? err : new Error(errorMessage), {
+        category: ERROR_CATEGORY.MAP,
+        severity: ERROR_SEVERITY.HIGH,
+        metadata: {
+          fileSize: file.size.toString(),
+          fileName: file.name
         }
-      );
+      });
+      return {
+        success: false,
+        error: errorMessage
+      };
     } finally {
       setIsUploading(false);
     }
@@ -175,34 +190,41 @@ export function FileUpload({ onFileSelect, className }: FileUploadProps) {
 
   const handleFileUpload = async (file: File) => {
     try {
-      const isValid = await validateFile(file);
-      if (!isValid) {
-        trackErrorWithContext(new Error('Invalid file format'), {
-          category: 'MAP',
-          subcategory: 'FILE_UPLOAD',
-          severity: ErrorSeverity.LOW,
-          metadata: {
-            fileSize: file.size.toString(),
-            fileName: file.name
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.MAP.CREATION.STARTED,
+        event_data: {
+          filename: file.name,
+          fileSize: file.size
+        }
+      });
+
+      const result = await processFile(file);
+      
+      if (result.success) {
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP.CREATION.COMPLETED,
+          event_data: {
+            filename: file.name,
+            fileSize: file.size
           }
         });
-        return;
-      }
-
-      await processFile(file);
-    } catch (err) {
-      await trackErrorWithContext(
-        err instanceof Error ? err : new Error('Unknown error during file upload'),
-        {
-          category: 'MAP',
-          subcategory: 'FILE_UPLOAD',
-          severity: ErrorSeverity.HIGH,
-          metadata: {
-            fileSize: file.size.toString(),
-            fileName: file.name
+        onUploadComplete?.({ success: true, data: result.data });
+      } else {
+        await trackEvent({
+          event_name: ANALYTICS_EVENTS.MAP.CREATION.ERROR,
+          event_data: {
+            error: result.error || 'Unknown error during file processing'
           }
-        }
-      );
+        });
+        onUploadComplete?.({ success: false, error: result.error });
+      }
+    } catch (error) {
+      await trackError(error instanceof Error ? error : new Error('File upload failed'), {
+        category: ERROR_CATEGORY.MAP,
+        severity: ERROR_SEVERITY.HIGH,
+        metadata: { filename: file.name, fileSize: file.size }
+      });
+      onUploadComplete?.({ success: false, error: 'Failed to process file' });
     }
   };
 

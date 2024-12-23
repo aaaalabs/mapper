@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/config/supabase';
 import { format } from 'date-fns';
 import { ResponsiveBar } from '@nivo/bar';
@@ -7,26 +7,7 @@ import { cn } from '@/lib/utils';
 import { adminStyles as styles } from './styles/adminStyles';
 import { DatePicker } from '../ui/DatePicker';
 import { Button } from '../ui/Button';
-
-interface FeedbackData {
-  id: string;
-  map_id: string;
-  rating: number;
-  feedback_type: 'positive' | 'negative' | 'neutral';
-  metadata: Record<string, any>;
-  created_at: string;
-  session_id?: string;
-  user_id?: string;
-  status: 'pending' | 'reviewed' | 'archived';
-}
-
-interface FeedbackStats {
-  totalCount: number;
-  averageRating: number;
-  typeDistribution: Record<string, number>;
-  ratingDistribution: Record<number, number>;
-  statusDistribution: Record<string, number>;
-}
+import { FeedbackData, FeedbackStats } from '@/types/feedback';
 
 export function FeedbackDashboard() {
   const [feedback, setFeedback] = useState<FeedbackData[]>([]);
@@ -52,8 +33,25 @@ export function FeedbackDashboard() {
 
       if (fetchError) throw fetchError;
 
-      setFeedback(data || []);
-      calculateStats(data || []);
+      const typedData = (data || []).map((item): FeedbackData => ({
+        ...item,
+        feedback_type: item.feedback_type || 'neutral',
+        status: item.status || 'pending',
+        metadata: {
+          email: item.metadata?.email || null,
+          useCase: item.metadata?.useCase || null,
+          company: item.metadata?.company || null,
+          position: item.metadata?.position || null,
+          industry: item.metadata?.industry || null,
+          size: item.metadata?.size || null,
+          location: item.metadata?.location || null,
+          source: item.metadata?.source || null,
+          last_updated: item.metadata?.last_updated
+        }
+      }));
+
+      setFeedback(typedData);
+      calculateStats(typedData);
     } catch (err) {
       console.error('Error fetching feedback:', err);
       setError('Failed to fetch feedback data');
@@ -68,34 +66,37 @@ export function FeedbackDashboard() {
       averageRating: 0,
       typeDistribution: {},
       ratingDistribution: {},
-      statusDistribution: {},
+      statusDistribution: {}
     };
 
-    data.forEach((item) => {
-      // Calculate average rating
-      stats.averageRating += item.rating;
+    let totalRating = 0;
+    let ratingCount = 0;
 
-      // Calculate type distribution
+    data.forEach(item => {
+      // Type distribution
       stats.typeDistribution[item.feedback_type] = (stats.typeDistribution[item.feedback_type] || 0) + 1;
 
-      // Calculate rating distribution
-      stats.ratingDistribution[item.rating] = (stats.ratingDistribution[item.rating] || 0) + 1;
-
-      // Calculate status distribution
+      // Status distribution
       stats.statusDistribution[item.status] = (stats.statusDistribution[item.status] || 0) + 1;
+
+      // Rating distribution
+      if (item.rating) {
+        stats.ratingDistribution[item.rating] = (stats.ratingDistribution[item.rating] || 0) + 1;
+        totalRating += item.rating;
+        ratingCount++;
+      }
     });
 
-    if (data.length > 0) {
-      stats.averageRating = Number((stats.averageRating / data.length).toFixed(2));
-    }
-
+    stats.averageRating = ratingCount > 0 ? totalRating / ratingCount : 0;
     setStats(stats);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-      case 'reviewed': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+      case 'contacted': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'approved': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+      case 'featured': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
       case 'archived': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -122,12 +123,18 @@ export function FeedbackDashboard() {
     );
   }
 
+  const pieData = Object.entries(stats?.typeDistribution || {}).map(([type, value]) => ({
+    id: type,
+    label: type,
+    value,
+  }));
+
   return (
     <div className={styles.pageContainer}>
       {/* Header */}
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Feedback Dashboard</h1>
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 mb-6">
           <div>
             <label className="block text-sm font-medium mb-1">Start Date</label>
             <DatePicker date={startDate} onChange={setStartDate} />
@@ -136,7 +143,7 @@ export function FeedbackDashboard() {
             <label className="block text-sm font-medium mb-1">End Date</label>
             <DatePicker date={endDate} onChange={setEndDate} />
           </div>
-          <Button onClick={fetchFeedback} variant="secondary">
+          <Button onClick={fetchFeedback} variant="outline">
             Refresh
           </Button>
         </div>
@@ -230,28 +237,20 @@ export function FeedbackDashboard() {
           <h3 className="text-lg font-medium mb-4">Feedback Type Distribution</h3>
           <div className="h-[300px]">
             <ResponsivePie
-              data={Object.entries(stats?.typeDistribution || {}).map(([type, value]) => ({
-                id: type,
-                label: type,
-                value,
-              }))}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+              data={pieData}
+              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
               innerRadius={0.5}
               padAngle={0.7}
               cornerRadius={3}
               colors={{ scheme: 'nivo' }}
               borderWidth={1}
               borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
-              radialLabelsSkipAngle={10}
-              radialLabelsTextXOffset={6}
-              radialLabelsTextColor="#888888"
-              radialLabelsLinkOffset={0}
-              radialLabelsLinkDiagonalLength={16}
-              radialLabelsLinkHorizontalLength={24}
-              radialLabelsLinkStrokeWidth={1}
-              radialLabelsLinkColor={{ from: 'color' }}
-              slicesLabelsSkipAngle={10}
-              slicesLabelsTextColor="#333333"
+              arcLinkLabelsSkipAngle={10}
+              arcLinkLabelsTextColor="#333333"
+              arcLinkLabelsThickness={2}
+              arcLinkLabelsColor={{ from: 'color' }}
+              arcLabelsSkipAngle={10}
+              arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
             />
           </div>
         </div>
@@ -277,7 +276,7 @@ export function FeedbackDashboard() {
                     {format(new Date(item.created_at), 'MMM d, yyyy HH:mm')}
                   </td>
                   <td className={styles.tableCell}>
-                    {item.rating} / 5
+                    {item.rating !== null ? `${item.rating} / 5` : 'N/A'}
                   </td>
                   <td className={styles.tableCell}>
                     <span className={cn('px-2 py-1 rounded-full text-xs font-medium', getFeedbackTypeColor(item.feedback_type))}>

@@ -3,7 +3,8 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Textarea } from './ui/Textarea';
 import { Star } from 'lucide-react';
-import { trackErrorWithContext, ErrorSeverity } from '../services/errorTracking';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from '../services/analytics';
+import { ANALYTICS_EVENTS } from '../services/analytics';
 import { createLead } from '../services/leadService';
 import { saveInitialRating, updateWithDetailedFeedback, getFeedbackStats, getRandomTestimonial } from '../services/feedbackService';
 
@@ -37,17 +38,11 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
         setTestimonial(randomTestimonial);
       } catch (error) {
         console.error('Error loading stats:', error);
-        trackErrorWithContext(
-          error instanceof Error ? error : new Error('Failed to load stats'),
-          {
-            severity: ErrorSeverity.HIGH,
-            category: 'FEEDBACK',
-            subcategory: 'VALIDATION',
-            metadata: {
-              error: error instanceof Error ? error.message : String(error)
-            }
-          }
-        );
+        await trackError(error instanceof Error ? error : new Error('Failed to load stats'), {
+          category: ERROR_CATEGORY.FEEDBACK,
+          severity: ERROR_SEVERITY.HIGH,
+          metadata: { error: error instanceof Error ? error.message : String(error) }
+        });
       }
     };
     loadStats();
@@ -61,26 +56,18 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
       const sessionId = localStorage.getItem('session_id');
       
       await saveInitialRating({
-        mapId,
+        map_id: mapId,
         rating: value,
         session_id: sessionId,
         context
       });
     } catch (error) {
       console.error('Error saving rating:', error);
-      trackErrorWithContext(
-        error instanceof Error ? error : new Error('Failed to save rating'),
-        {
-          severity: ErrorSeverity.HIGH,
-          category: 'FEEDBACK',
-          subcategory: 'SUBMIT',
-          metadata: {
-            mapId,
-            rating: value,
-            context
-          }
-        }
-      );
+      await trackError(error instanceof Error ? error : new Error('Failed to save rating'), {
+        category: ERROR_CATEGORY.FEEDBACK,
+        severity: ERROR_SEVERITY.HIGH,
+        metadata: { mapId, rating: value, context }
+      });
     }
   };
 
@@ -112,31 +99,31 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
       // Save detailed feedback
       if (feedback) {
         await updateWithDetailedFeedback({
-          mapId,
+          map_id: mapId,
           feedback,
           canFeature
         });
       }
 
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.FEEDBACK.SUBMITTED,
+        event_data: {
+          rating,
+          has_comment: Boolean(feedback),
+          has_email: Boolean(email),
+          map_id: mapId
+        }
+      });
+
       onClose();
     } catch (error) {
       console.error('Error submitting feedback:', error);
       setError('Failed to submit feedback. Please try again.');
-      trackErrorWithContext(
-        error instanceof Error ? error : new Error('Failed to submit feedback'),
-        {
-          severity: ErrorSeverity.HIGH,
-          category: 'FEEDBACK',
-          subcategory: 'SUBMIT',
-          metadata: {
-            mapId,
-            rating,
-            hasEmail: Boolean(email),
-            context,
-            error: error instanceof Error ? error.message : String(error)
-          }
-        }
-      );
+      await trackError(error instanceof Error ? error : new Error('Failed to submit feedback'), {
+        category: ERROR_CATEGORY.FEEDBACK,
+        severity: ERROR_SEVERITY.HIGH,
+        metadata: { mapId, rating, hasEmail: Boolean(email), context, error: error instanceof Error ? error.message : String(error) }
+      });
     } finally {
       setIsLoading(false);
     }

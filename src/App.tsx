@@ -26,7 +26,7 @@ import { AdminSettings } from './components/insights/AdminSettings';
 import { Logs } from './components/admin/Logs';
 import { useAuth } from './hooks/useAuth';
 import { XCircleIcon } from '@heroicons/react/24/outline';
-import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from './services/errorTracking';
+import { trackError, ERROR_CATEGORY, ERROR_SEVERITY } from './services/analytics';
 import { usePerformanceTracking } from './hooks/usePerformanceTracking';
 import { Orders } from './components/admin/Orders';
 import { Leads } from './components/admin/Leads'; // Fixed Leads import to use named import
@@ -39,14 +39,13 @@ function RouteError() {
   const isRouteError = isRouteErrorResponse(error);
 
   useEffect(() => {
-    trackErrorWithContext(
+    trackError(
       error instanceof Error ? error : new Error(isRouteError ? `${error.status} - ${error.statusText}` : 'Route Error'),
       {
-        category: 'SYSTEM' as ErrorCategory,
+        category: ERROR_CATEGORY.SYSTEM,
         subcategory: 'ROUTING',
-        severity: ErrorSeverity.HIGH,
+        severity: ERROR_SEVERITY.HIGH,
         componentName: 'RouteError',
-        action: 'route_error',
         metadata: {
           status: isRouteError ? error.status?.toString() : undefined,
           statusText: isRouteError ? error.statusText : undefined,
@@ -180,15 +179,15 @@ const router = createBrowserRouter([
 
 function App() {
   // Initialize performance tracking
-  usePerformanceTracking();
+  usePerformanceTracking('App');
 
   useEffect(() => {
     // Global error handler for uncaught errors
     const handleUnhandledError = (event: ErrorEvent) => {
-      trackErrorWithContext(event.error || new Error(event.message), {
-        category: 'SYSTEM' as ErrorCategory,
+      trackError(event.error || new Error(event.message), {
+        category: ERROR_CATEGORY.SYSTEM,
         subcategory: 'CRASH',
-        severity: ErrorSeverity.HIGH,
+        severity: ERROR_SEVERITY.HIGH,
         metadata: {
           message: event.message,
           filename: event.filename,
@@ -202,12 +201,12 @@ function App() {
 
     // Global handler for unhandled promise rejections
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      trackErrorWithContext(
+      trackError(
         event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
         {
-          category: 'SYSTEM' as ErrorCategory,
+          category: ERROR_CATEGORY.SYSTEM,
           subcategory: 'CRASH',
-          severity: ErrorSeverity.HIGH,
+          severity: ERROR_SEVERITY.HIGH,
           metadata: {
             type: 'unhandled_rejection',
             error: String(event.reason),
@@ -220,10 +219,10 @@ function App() {
     // Global handler for network errors
     const handleNetworkError = () => {
       const error = new Error('Network request failed');
-      trackErrorWithContext(error, {
-        category: 'SYSTEM' as ErrorCategory,
+      trackError(error, {
+        category: ERROR_CATEGORY.SYSTEM,
         subcategory: 'NETWORK',
-        severity: ErrorSeverity.HIGH,
+        severity: ERROR_SEVERITY.HIGH,
         componentName: 'App',
         metadata: {
           online: navigator.onLine.toString(),

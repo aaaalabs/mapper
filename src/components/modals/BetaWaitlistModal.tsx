@@ -1,136 +1,181 @@
-import { useState, useEffect } from 'react';
-import { Dialog } from '@headlessui/react';
+import { useState } from 'react';
+import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { trackErrorWithContext, ErrorSeverity, ErrorCategory } from '../../services/analytics';
-import { createLead, LeadType, LeadStatus } from '../../services/leadService';
+import { X } from 'lucide-react';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from '../../services/analytics';
+import { ANALYTICS_EVENTS } from '../../services/analytics';
+import { createLead } from '../../services/leadService';
+import type { LeadInsert } from '../../types/lead';
 
 interface BetaWaitlistModalProps {
   isOpen: boolean;
   onClose: () => void;
-  source?: string; // Track where the modal was opened from
 }
 
-export function BetaWaitlistModal({ isOpen, onClose, source = 'default' }: BetaWaitlistModalProps) {
+export function BetaWaitlistModal({ isOpen, onClose }: BetaWaitlistModalProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [communityLink, setCommunityLink] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [skoolUrl, setSkoolUrl] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!email || !name || !communityLink) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
+  const validateSkoolUrl = (url: string): boolean => {
     try {
-      const sessionId = localStorage.getItem('session_id');
-
-      await createLead({
-        email,
-        name,
-        community_link: communityLink,
-        lead_type: 'beta_waitlist' as LeadType,
-        status: 'pending' as LeadStatus,
-        session_id: sessionId || undefined,
-        event_data: {
-          source,
-          timestamp: new Date().toISOString()
-        }
-      });
-
-      setShowSuccess(true);
-      setEmail('');
-      setName('');
-      setCommunityLink('');
-    } catch (error) {
-      console.error('Error submitting to waitlist:', error);
-      const message = error instanceof Error ? error.message : 'Failed to join waitlist';
-      setError(message);
-      trackErrorWithContext(error instanceof Error ? error : new Error(message), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'BETA_WAITLIST',
-        severity: ErrorSeverity.HIGH,
-        metadata: {
-          email,
-          error: message
-        }
-      });
-    } finally {
-      setIsLoading(false);
+      const urlObj = new URL(url);
+      return urlObj.hostname === 'skool.com' && urlObj.protocol === 'https:';
+    } catch {
+      return false;
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      setEmail('');
-      setName('');
-      setCommunityLink('');
-      setShowSuccess(false);
-      setError(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    if (!validateSkoolUrl(skoolUrl)) {
+      setError('Please enter a valid Skool URL (https://skool.com/...)');
+      setIsSubmitting(false);
+      return;
     }
-  }, [isOpen]);
+
+    try {
+      await createLead({
+        email,
+        name,
+        community_link: skoolUrl,
+        lead_type: 'beta_waitlist',
+        status: 'pending',
+        event_data: {
+          source: 'beta_modal',
+          skool_url: skoolUrl
+        }
+      });
+
+      await trackEvent({
+        event_name: ANALYTICS_EVENTS.BETA.WAITLIST_JOIN,
+        event_data: {
+          email_provided: true,
+          source: 'beta_modal',
+          skool_url: skoolUrl
+        }
+      });
+
+      setIsSuccess(true);
+    } catch (error) {
+      setError('Failed to join waitlist. Please try again.');
+      trackError(error instanceof Error ? error : new Error('Failed to join waitlist'), {
+        category: ERROR_CATEGORY.LEAD,
+        severity: ERROR_SEVERITY.HIGH,
+        metadata: { source: 'beta_modal', skool_url: skoolUrl }
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-sm rounded bg-white dark:bg-gray-800 p-6">
-          <Dialog.Title className="text-lg font-medium mb-4">
-            Join the Beta Waitlist
-          </Dialog.Title>
+    <Dialog isOpen={isOpen} onClose={onClose}>
+      <div className="relative bg-background rounded-lg shadow-lg w-full max-w-md">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
+        
+        <div className="p-6">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-foreground">
+              Join the Beta Waitlist
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Get early access to our advanced features
+            </p>
+          </div>
 
-          {showSuccess ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-lg mb-4 text-gray-700 dark:text-gray-200">
-                We've added you to our waitlist! We'll be in touch soon with next steps.
+          {isSuccess ? (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">
+                Thanks for joining! We'll be in touch soon.
               </p>
-              <Button onClick={onClose} variant="outline">Close</Button>
+              <Button onClick={onClose} className="mt-4 w-full">
+                Close
+              </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <Input
-                placeholder="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Input
-                placeholder="Community Link"
-                value={communityLink}
-                onChange={(e) => setCommunityLink(e.target.value)}
-              />
+            <form onSubmit={handleSubmit} className="mt-4">
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-foreground">
+                    Name
+                  </label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    placeholder="Your full name"
+                    className="mt-1"
+                  />
+                </div>
 
-              {error && (
-                <div className="text-red-500 text-sm">{error}</div>
-              )}
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-foreground">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="your@email.com"
+                    className="mt-1"
+                  />
+                </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button onClick={onClose} variant="outline">
-                  Cancel
-                </Button>
-                <Button onClick={handleSubmit} disabled={isLoading}>
-                  {isLoading ? 'Joining...' : 'Join Waitlist'}
-                </Button>
+                <div>
+                  <label htmlFor="skoolUrl" className="block text-sm font-medium text-foreground">
+                    Skool Website Link
+                  </label>
+                  <Input
+                    id="skoolUrl"
+                    type="url"
+                    value={skoolUrl}
+                    onChange={(e) => setSkoolUrl(e.target.value)}
+                    required
+                    placeholder="https://skool.com/your-community"
+                    pattern="https://skool\.com/.*"
+                    className="mt-1"
+                  />
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Must be a valid Skool URL (https://skool.com/...)
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="rounded-md bg-destructive/15 px-3 py-2 text-sm text-destructive">
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex flex-col space-y-2">
+                  <Button type="submit" isLoading={isSubmitting} className="w-full">
+                    Join Waitlist
+                  </Button>
+                  <Button onClick={onClose} variant="outline" className="w-full">
+                    Cancel
+                  </Button>
+                </div>
               </div>
-            </div>
+            </form>
           )}
-        </Dialog.Panel>
+        </div>
       </div>
     </Dialog>
   );

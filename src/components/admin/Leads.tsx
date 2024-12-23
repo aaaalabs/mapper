@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { trackEvent, trackErrorWithContext, ErrorCategory, ErrorSeverity } from '../../services/analytics';
+import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from '../../services/analytics';
+import { ANALYTICS_EVENTS } from '../../services/analytics';
 import { Lead } from '../../types/lead';
 import { DatabaseEvent, AnalyticsEvent } from '../../types/events';
 import { SessionAnalytics, TimeFilter, LeadMetrics, AnonymousMetrics, ConversionPath } from '../../types/analytics';
@@ -102,7 +103,7 @@ export function Leads() {
       });
 
       await trackEvent({
-        event_name: 'admin.leads.viewed',
+        event_name: ANALYTICS_EVENTS.SYSTEM.PERFORMANCE,
         event_data: {
           leads_count: leadMetrics.total_leads,
           anonymous_sessions: anonymousMetrics.total_visitors,
@@ -110,14 +111,13 @@ export function Leads() {
         }
       });
     } catch (error) {
+      await trackError(error instanceof Error ? error : new Error('Failed to fetch data'), {
+        category: ERROR_CATEGORY.LEAD,
+        severity: ERROR_SEVERITY.HIGH,
+        metadata: { error: error instanceof Error ? error.message : String(error) }
+      });
       const message = error instanceof Error ? error.message : 'Failed to fetch data';
       setError(message);
-      trackErrorWithContext(error instanceof Error ? error : new Error(message), {
-        category: ErrorCategory.LEAD,
-        subcategory: 'FETCH',
-        severity: ErrorSeverity.HIGH,
-        metadata: { error: message }
-      });
     } finally {
       setLoading(false);
     }
