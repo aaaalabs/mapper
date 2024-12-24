@@ -2,35 +2,14 @@ import { supabase } from '@/lib/supabase';
 import {
   FeedbackMetadata,
   FeedbackType,
-  FeedbackStatus,
-  FeedbackError,
-  FeedbackData,
   FeedbackStats,
-  MetadataUpdate,
-  AnalyticsEvent,
+  FeedbackError,
   validateRating,
   validateMetadata,
-  validateFeedbackType,
-  validateFeedbackStatus
+  MetadataUpdate,
+  FeedbackData
 } from '@/types/feedback';
-
-// Event types for feedback tracking
-const FEEDBACK_EVENTS = {
-  SUBMITTED: 'feedback_submitted',
-  UPDATED: 'feedback_updated',
-  DELETED: 'feedback_deleted'
-} as const;
-
-/**
- * Merges existing metadata with new updates, preserving non-null values
- */
-function mergeMetadata(existing: FeedbackMetadata, updates: MetadataUpdate): FeedbackMetadata {
-  return {
-    ...existing,
-    ...updates,
-    last_updated: new Date().toISOString()
-  };
-}
+import { sessionService } from '@/services/sessionService';
 
 /**
  * Updates feedback with detailed metadata
@@ -40,13 +19,22 @@ export async function updateWithDetailedFeedback(
   updates: MetadataUpdate
 ): Promise<void> {
   try {
+    console.log('Updating feedback with details:', { id, updates });
+
+    // Validate the ID
+    if (!id || typeof id !== 'string') {
+      throw new FeedbackError('Invalid feedback ID', 'VALIDATION');
+    }
+
+    // Fetch existing feedback
     const { data: existing, error: fetchError } = await supabase
       .from('map_feedback')
-      .select('metadata')
+      .select('*')  // Select all fields to see complete record
       .eq('id', id)
       .single();
 
     if (fetchError) {
+      console.error('Failed to fetch existing feedback:', fetchError);
       throw new FeedbackError(
         'Failed to fetch existing feedback',
         'DATABASE',
@@ -55,28 +43,79 @@ export async function updateWithDetailedFeedback(
     }
 
     if (!existing) {
+      console.error('Feedback not found for ID:', id);
       throw new FeedbackError(
         'Feedback not found',
         'DATABASE'
       );
     }
 
-    const updatedMetadata = mergeMetadata(existing.metadata, updates);
+    console.log('Existing feedback data:', existing);
+
+    // Create new metadata object with ALL fields from existing
+    const updatedMetadata: FeedbackMetadata = {
+      ...existing.metadata, // Preserve all existing fields
+      email: updates.email ?? existing.metadata.email ?? null,
+      name: updates.name ?? existing.metadata.name ?? null,
+      can_feature: updates.can_feature ?? existing.metadata.can_feature ?? false,
+      testimonial: updates.testimonial ?? existing.metadata.testimonial ?? null,
+      feedback_text: updates.feedback_text ?? existing.metadata.feedback_text ?? null,
+      context: updates.context ?? existing.metadata.context ?? null,
+      location: existing.metadata.location ?? null,
+      source: existing.metadata.source ?? null,
+      last_updated: new Date().toISOString()
+    };
+
+    console.log('Updated metadata:', updatedMetadata);
+
+    // Validate the metadata
     validateMetadata(updatedMetadata);
 
-    const { error: updateError } = await supabase
+    const updateData: Partial<FeedbackData> = {
+      metadata: updatedMetadata,
+      updated_at: new Date().toISOString(),
+      status: updates.testimonial && updates.can_feature ? 'pending' : existing.status // Preserve existing status if not changing
+    };
+
+    console.log('Sending update with data:', updateData);
+
+    // Update the feedback with session_id check
+    const query = supabase
       .from('map_feedback')
-      .update({ metadata: updatedMetadata })
+      .update(updateData)
       .eq('id', id);
 
+    // Only add session_id check if it exists
+    if (existing.session_id) {
+      query.eq('session_id', existing.session_id);
+    }
+
+    const { data: updateResult, error: updateError } = await query.select('*');
+
     if (updateError) {
+      console.error('Failed to update feedback:', updateError);
       throw new FeedbackError(
         'Failed to update feedback',
         'DATABASE',
         { error: updateError }
       );
     }
+
+    if (!updateResult?.length) {
+      console.error('No rows updated. Session mismatch?', {
+        feedbackId: id,
+        sessionId: existing.session_id
+      });
+      throw new FeedbackError(
+        'Unable to update feedback - session mismatch',
+        'DATABASE'
+      );
+    }
+
+    console.log('Update result:', updateResult);
+    console.log('Successfully updated feedback:', id);
   } catch (err) {
+    console.error('Error in updateWithDetailedFeedback:', err);
     if (err instanceof FeedbackError) {
       throw err;
     }
@@ -89,141 +128,137 @@ export async function updateWithDetailedFeedback(
 }
 
 /**
- * Submits new feedback
- */
-export async function submitFeedback(
-  map_id: string,
-  feedback_type: FeedbackType,
-  rating: number,
-  metadata: MetadataUpdate
-): Promise<string> {
-  try {
-    validateFeedbackType(feedback_type);
-    validateRating(rating);
-    validateMetadata(metadata);
-
-    const feedbackMetadata: FeedbackMetadata = {
-      email: metadata.email ?? null,
-      name: metadata.name ?? null,
-      can_feature: metadata.can_feature ?? false,
-      testimonial: metadata.testimonial ?? null,
-      feedback_text: metadata.feedback_text ?? null,
-      context: metadata.context ?? null,
-      location: metadata.location ?? null,
-      source: metadata.source ?? null,
-      last_updated: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('map_feedback')
-      .insert({
-        map_id,
-        feedback_type,
-        rating,
-        status: 'pending' as const,
-        metadata: feedbackMetadata
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      throw new FeedbackError(
-        'Failed to submit feedback',
-        'DATABASE',
-        { error }
-      );
-    }
-
-    if (!data?.id) {
-      throw new FeedbackError(
-        'Failed to get feedback ID',
-        'DATABASE'
-      );
-    }
-
-    return data.id;
-  } catch (err) {
-    if (err instanceof FeedbackError) {
-      throw err;
-    }
-    throw new FeedbackError(
-      'Failed to submit feedback',
-      'DATABASE',
-      { error: err }
-    );
-  }
-}
-
-/**
  * Saves the initial rating feedback without detailed metadata
  */
 export async function saveInitialRating(
   map_id: string,
   rating: number,
-  session_id: string
+  session_id: string | null,
+  context?: 'download' | 'share'
 ): Promise<string> {
   try {
+    // Validate inputs
     validateRating(rating);
+    if (!map_id) {
+      throw new FeedbackError('Map ID is required', 'VALIDATION');
+    }
 
-    const { data, error } = await supabase
+    // If no session_id provided, create a new session
+    let validSessionId = session_id;
+    if (!validSessionId) {
+      try {
+        const newSession = await sessionService.createSession({
+          source: typeof window !== 'undefined' ? window.location.pathname : null,
+          context: context || null
+        });
+        validSessionId = newSession.id;
+      } catch (sessionError) {
+        console.error('Failed to create session:', sessionError);
+        // Continue without session if creation fails
+        validSessionId = null;
+      }
+    } else {
+      // Verify the session exists
+      try {
+        const existingSession = await sessionService.getSession(validSessionId);
+        if (!existingSession) {
+          // Session doesn't exist, create a new one
+          const newSession = await sessionService.createSession({
+            source: typeof window !== 'undefined' ? window.location.pathname : null,
+            context: context || null
+          });
+          validSessionId = newSession.id;
+        }
+      } catch (sessionError) {
+        console.error('Failed to verify session:', sessionError);
+        // Continue without session if verification fails
+        validSessionId = null;
+      }
+    }
+
+    const feedback_type: FeedbackType = rating >= 4 ? 'positive' : rating <= 2 ? 'negative' : 'neutral';
+    const initialMetadata: FeedbackMetadata = {
+      email: null,
+      name: null,
+      can_feature: false,
+      testimonial: null,
+      feedback_text: null,
+      context: context || null,
+      location: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      source: typeof window !== 'undefined' ? window.location.pathname : null,
+      last_updated: new Date().toISOString()
+    };
+
+    // Try to get existing feedback first
+    let existingFeedback = null;
+    if (validSessionId) {
+      const { data } = await supabase
+        .from('map_feedback')
+        .select('id')
+        .eq('map_id', map_id)
+        .eq('session_id', validSessionId)
+        .maybeSingle();
+      existingFeedback = data;
+    }
+
+    // If feedback exists, update it
+    if (existingFeedback?.id) {
+      console.log('Updating existing feedback:', existingFeedback.id);
+      const { error: updateError } = await supabase
+        .from('map_feedback')
+        .update({
+          rating,
+          feedback_type,
+          metadata: initialMetadata
+        })
+        .eq('id', existingFeedback.id);
+
+      if (updateError) {
+        console.error('Error updating feedback:', updateError);
+        throw new FeedbackError(
+          'Failed to update existing rating',
+          'DATABASE',
+          { error: updateError }
+        );
+      }
+
+      return existingFeedback.id;
+    }
+
+    // If no existing feedback, create new
+    console.log('Creating new feedback for map:', map_id, 'session:', validSessionId);
+    const { data: newFeedback, error: insertError } = await supabase
       .from('map_feedback')
       .insert({
         map_id,
         rating,
-        feedback_type: 'initial' as const,
-        status: 'pending' as const,
-        session_id,
-        metadata: {
-          email: null,
-          name: null,
-          can_feature: false,
-          testimonial: null,
-          feedback_text: null,
-          context: null,
-          location: null,
-          source: null,
-          last_updated: new Date().toISOString()
-        }
+        session_id: validSessionId,
+        metadata: initialMetadata,
+        status: 'pending',
+        feedback_type
       })
       .select('id')
       .single();
 
-    if (error) {
+    if (insertError) {
+      console.error('Error inserting feedback:', insertError);
       throw new FeedbackError(
         'Failed to save initial rating',
         'DATABASE',
-        { error }
+        { error: insertError }
       );
     }
 
-    if (!data?.id) {
+    if (!newFeedback?.id) {
       throw new FeedbackError(
         'Failed to get feedback ID',
         'DATABASE'
       );
     }
 
-    // Track the feedback event
-    const analyticsEvent: AnalyticsEvent = {
-      session_id,
-      event_name: FEEDBACK_EVENTS.SUBMITTED,
-      event_data: {
-        feedback_id: data.id,
-        rating,
-        map_id
-      }
-    };
-
-    const { error: analyticsError } = await supabase
-      .from('map_analytics_events')
-      .insert(analyticsEvent);
-
-    if (analyticsError) {
-      console.error('Failed to track feedback event:', analyticsError);
-    }
-
-    return data.id;
+    return newFeedback.id;
   } catch (err) {
+    console.error('Error in saveInitialRating:', err);
     if (err instanceof FeedbackError) {
       throw err;
     }
@@ -252,39 +287,47 @@ export async function getFeedbackStats(): Promise<FeedbackStats> {
       );
     }
 
-    const stats: FeedbackStats = {
-      totalCount: data.length,
-      averageRating: 0,
-      typeDistribution: {},
-      ratingDistribution: {},
-      statusDistribution: {}
-    };
-
-    if (data.length > 0) {
-      // Calculate average rating
-      const totalRating = data.reduce((sum, item) => sum + (item.rating || 0), 0);
-      stats.averageRating = totalRating / data.length;
-
-      // Calculate distributions
-      data.forEach(item => {
-        // Type distribution
-        if (item.feedback_type) {
-          stats.typeDistribution[item.feedback_type] = (stats.typeDistribution[item.feedback_type] || 0) + 1;
-        }
-
-        // Rating distribution
-        if (item.rating) {
-          stats.ratingDistribution[item.rating] = (stats.ratingDistribution[item.rating] || 0) + 1;
-        }
-
-        // Status distribution
-        if (item.status) {
-          stats.statusDistribution[item.status] = (stats.statusDistribution[item.status] || 0) + 1;
-        }
-      });
+    if (!data) {
+      throw new FeedbackError(
+        'No feedback data found',
+        'DATABASE'
+      );
     }
 
-    return stats;
+    // Calculate statistics
+    const totalCount = data.length;
+    const totalRating = data.reduce((sum, item) => sum + (item.rating || 0), 0);
+    const averageRating = totalCount > 0 ? totalRating / totalCount : 0;
+
+    // Calculate distributions
+    const typeDistribution: Record<string, number> = {};
+    const ratingDistribution: Record<number, number> = {};
+    const statusDistribution: Record<string, number> = {};
+
+    data.forEach(item => {
+      // Type distribution
+      if (item.feedback_type) {
+        typeDistribution[item.feedback_type] = (typeDistribution[item.feedback_type] || 0) + 1;
+      }
+
+      // Rating distribution
+      if (item.rating) {
+        ratingDistribution[item.rating] = (ratingDistribution[item.rating] || 0) + 1;
+      }
+
+      // Status distribution
+      if (item.status) {
+        statusDistribution[item.status] = (statusDistribution[item.status] || 0) + 1;
+      }
+    });
+
+    return {
+      totalCount,
+      averageRating,
+      typeDistribution,
+      ratingDistribution,
+      statusDistribution
+    };
   } catch (err) {
     if (err instanceof FeedbackError) {
       throw err;
@@ -308,7 +351,7 @@ export async function getRandomTestimonial(): Promise<{ feedback_text: string; r
       .eq('status', 'approved')
       .not('metadata->feedback_text', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(10);
 
     if (error) {
       throw new FeedbackError(
@@ -322,32 +365,19 @@ export async function getRandomTestimonial(): Promise<{ feedback_text: string; r
       return null;
     }
 
-    // Filter testimonials with valid feedback_text and rating
-    const validTestimonials = data.filter(item => 
-      item.metadata?.feedback_text && 
-      typeof item.rating === 'number'
-    );
+    const randomIndex = Math.floor(Math.random() * data.length);
+    const testimonial = data[randomIndex];
 
-    if (validTestimonials.length === 0) {
+    if (!testimonial.metadata?.feedback_text) {
       return null;
     }
 
-    // Select a random testimonial
-    const randomIndex = Math.floor(Math.random() * validTestimonials.length);
-    const selected = validTestimonials[randomIndex];
-
     return {
-      feedback_text: selected.metadata.feedback_text!,
-      rating: selected.rating
+      feedback_text: testimonial.metadata.feedback_text,
+      rating: testimonial.rating
     };
   } catch (err) {
-    if (err instanceof FeedbackError) {
-      throw err;
-    }
-    throw new FeedbackError(
-      'Failed to get random testimonial',
-      'DATABASE',
-      { error: err }
-    );
+    console.error('Error fetching testimonial:', err);
+    return null;
   }
 }

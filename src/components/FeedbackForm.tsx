@@ -7,6 +7,7 @@ import { trackEvent, trackError, ERROR_SEVERITY, ERROR_CATEGORY } from '../servi
 import { ANALYTICS_EVENTS } from '../services/analytics';
 import { createLead } from '../services/leadService';
 import { saveInitialRating, updateWithDetailedFeedback, getFeedbackStats, getRandomTestimonial } from '../services/feedbackService';
+import { FeedbackError } from '../types/feedback';
 
 interface FeedbackFormProps {
   onClose: () => void;
@@ -23,8 +24,15 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canFeature, setCanFeature] = useState(false);
-  const [stats, setStats] = useState<{ totalMaps: number; averageRating: number; testimonialCount: number } | null>(null);
-  const [testimonial, setTestimonial] = useState<string | null>(null);
+  const [stats, setStats] = useState<{
+    totalCount: number;
+    averageRating: number;
+    typeDistribution: Record<string, number>;
+    ratingDistribution: Record<number, number>;
+    statusDistribution: Record<string, number>;
+  } | null>(null);
+  const [testimonial, setTestimonial] = useState<{ feedback_text: string; rating: number; } | null>(null);
+  const [feedbackId, setFeedbackId] = useState<string | null>(null);
 
   useEffect(() => {
     // Load social proof data
@@ -34,6 +42,7 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
           getFeedbackStats(),
           getRandomTestimonial()
         ]);
+
         setStats(statsData);
         setTestimonial(randomTestimonial);
       } catch (error) {
@@ -50,19 +59,23 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
 
   const handleRatingClick = async (value: number) => {
     setRating(value);
-    setShowDetails(true);
+    setError(null);
 
     try {
-      const sessionId = localStorage.getItem('session_id');
+      const sessionId = localStorage.getItem('currentSessionId');
       
-      await saveInitialRating({
-        map_id: mapId,
-        rating: value,
-        session_id: sessionId,
+      const id = await saveInitialRating(
+        mapId,
+        value,
+        sessionId,
         context
-      });
+      );
+      
+      setFeedbackId(id);
+      setShowDetails(true);
     } catch (error) {
       console.error('Error saving rating:', error);
+      setError(error instanceof FeedbackError ? error.message : 'Failed to save rating');
       await trackError(error instanceof Error ? error : new Error('Failed to save rating'), {
         category: ERROR_CATEGORY.FEEDBACK,
         severity: ERROR_SEVERITY.HIGH,
@@ -72,13 +85,16 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
   };
 
   const handleSubmitDetails = async () => {
-    if (!rating) return;
+    if (!rating || !feedbackId) {
+      setError('Unable to submit feedback. Please try again.');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const sessionId = localStorage.getItem('session_id');
+      const sessionId = localStorage.getItem('currentSessionId');
 
       // Create lead if email is provided
       if (email && name) {
@@ -97,11 +113,13 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
       }
 
       // Save detailed feedback
-      if (feedback) {
-        await updateWithDetailedFeedback({
-          map_id: mapId,
-          feedback,
-          canFeature
+      if (feedback || email || name || canFeature) {
+        await updateWithDetailedFeedback(feedbackId, {
+          feedback_text: feedback || null,
+          email: email || null,
+          name: name || null,
+          can_feature: canFeature,
+          testimonial: canFeature ? feedback : null
         });
       }
 
@@ -109,24 +127,55 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
         event_name: ANALYTICS_EVENTS.FEEDBACK.SUBMITTED,
         event_data: {
           rating,
-          has_comment: Boolean(feedback),
-          has_email: Boolean(email),
-          map_id: mapId
+          has_feedback: !!feedback,
+          has_email: !!email,
+          context,
+          session_id: sessionId
         }
       });
 
       onClose();
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      setError('Failed to submit feedback. Please try again.');
+      setError(error instanceof FeedbackError ? error.message : 'Failed to submit feedback');
+      setIsLoading(false);
+      
       await trackError(error instanceof Error ? error : new Error('Failed to submit feedback'), {
         category: ERROR_CATEGORY.FEEDBACK,
         severity: ERROR_SEVERITY.HIGH,
-        metadata: { mapId, rating, hasEmail: Boolean(email), context, error: error instanceof Error ? error.message : String(error) }
+        metadata: { 
+          feedbackId,
+          rating,
+          has_feedback: !!feedback,
+          has_email: !!email,
+          context,
+          error: error instanceof Error ? error.message : String(error)
+        }
       });
-    } finally {
-      setIsLoading(false);
     }
+  };
+
+  const renderSocialProof = () => {
+    if (!stats) return null;
+
+    return (
+      <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
+        <div>
+          <div className="font-semibold text-primary dark:text-dark-primary">{stats.totalCount.toLocaleString()}</div>
+          <div className="text-gray-500 dark:text-gray-400">Maps Created</div>
+        </div>
+        <div>
+          <div className="font-semibold text-primary dark:text-dark-primary">{stats.averageRating.toFixed(1)}/5</div>
+          <div className="text-gray-500 dark:text-gray-400">Avg Rating</div>
+        </div>
+        <div>
+          <div className="font-semibold text-primary dark:text-dark-primary">
+            {Object.values(stats.typeDistribution).reduce((a, b) => a + b, 0)}
+          </div>
+          <div className="text-gray-500 dark:text-gray-400">Testimonials</div>
+        </div>
+      </div>
+    );
   };
 
   if (!showDetails) {
@@ -137,22 +186,7 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
         </h3>
 
         {/* Social Proof */}
-        {stats && (
-          <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
-            <div>
-              <div className="font-semibold text-primary dark:text-dark-primary">{stats.totalMaps.toLocaleString()}</div>
-              <div className="text-gray-500 dark:text-gray-400">Maps Created</div>
-            </div>
-            <div>
-              <div className="font-semibold text-primary dark:text-dark-primary">{stats.averageRating}/5</div>
-              <div className="text-gray-500 dark:text-gray-400">Avg Rating</div>
-            </div>
-            <div>
-              <div className="font-semibold text-primary dark:text-dark-primary">{stats.testimonialCount}</div>
-              <div className="text-gray-500 dark:text-gray-400">Reviews</div>
-            </div>
-          </div>
-        )}
+        {renderSocialProof()}
 
         {/* Star Rating */}
         <div className="flex justify-center gap-2">
@@ -176,7 +210,7 @@ export function FeedbackForm({ onClose, mapId, context = 'download' }: FeedbackF
         {/* Random Testimonial */}
         {testimonial && (
           <div className="mt-6 text-sm italic text-gray-600 dark:text-gray-300">
-            "{testimonial}"
+            "{testimonial.feedback_text}"
           </div>
         )}
       </div>

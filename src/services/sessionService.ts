@@ -7,9 +7,24 @@ import type { Database } from '../types/supabase';
 type SessionInsert = Database['public']['Tables']['map_sessions']['Insert'];
 type SessionUpdate = Database['public']['Tables']['map_sessions']['Update'];
 
+// Generate a UUID v4
+function generateUUID(): string {
+  // Check if native crypto.randomUUID is available
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback implementation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 const createSession = async (metadata?: Record<string, any>): Promise<Session> => {
   try {
-    const session_id = crypto.randomUUID();
+    const session_id = generateUUID();
     const insertData: SessionInsert = {
       id: session_id,
       status: 'active',
@@ -42,11 +57,13 @@ const createSession = async (metadata?: Record<string, any>): Promise<Session> =
 
 const getSession = async (sessionId: string): Promise<Session | null> => {
   try {
+    if (!sessionId) return null;
+
     const { data, error } = await supabase
       .from('map_sessions')
-      .select()
+      .select('*')
       .eq('id', sessionId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       if (error.code === 'PGRST116') return null;

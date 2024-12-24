@@ -1,4 +1,4 @@
-export type FeedbackType = 'positive' | 'negative' | 'neutral' | 'initial';
+export type FeedbackType = 'positive' | 'negative' | 'neutral';
 export type FeedbackStatus = 'pending' | 'contacted' | 'approved' | 'featured' | 'archived';
 
 export interface FeedbackMetadata {
@@ -156,7 +156,7 @@ export function validateMetadata(metadata: Partial<FeedbackMetadata>): void {
 }
 
 export function validateFeedbackType(type: unknown): asserts type is FeedbackType {
-  if (typeof type !== 'string' || !['positive', 'negative', 'neutral', 'initial'].includes(type)) {
+  if (typeof type !== 'string' || !['positive', 'negative', 'neutral'].includes(type)) {
     throw new FeedbackError(
       'Invalid feedback type',
       'VALIDATION'

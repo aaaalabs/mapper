@@ -1,33 +1,7 @@
 import { supabase } from '../lib/supabase';
-import { trackEvent, trackError } from './analytics';
-import type { Lead, LeadInsert, LeadUpdate, MapLead } from '../types/lead';
-
-export type LeadType = 'beta_waitlist' | 'data_extraction';
-export type LeadStatus = 'pending' | 'contacted' | 'converted' | 'rejected';
-
-export interface Lead {
-  id?: string;
-  email: string;
-  name: string;
-  lead_type: LeadType;
-  status: LeadStatus;
-  source?: string;
-  community_link?: string;
-  event_data?: Record<string, any>;
-  created_at?: string;
-  updated_at?: string;
-  map_id?: string;
-  feedback_id?: string;
-  session_id?: string;
-}
-
-export interface LeadInsert extends Omit<Lead, 'id' | 'created_at' | 'updated_at'> {
-  event_data?: Record<string, any>;
-}
-
-export interface LeadUpdate extends Partial<Lead> {
-  event_data?: Record<string, any>;
-}
+import { trackError } from './analytics';
+import { ERROR_CATEGORY } from './analytics';
+import type { Lead, LeadInsert, LeadUpdate } from '../types/lead';
 
 // Create a new lead
 export const createLead = async (data: Omit<LeadInsert, 'updated_at'>): Promise<Lead | null> => {
@@ -39,14 +13,15 @@ export const createLead = async (data: Omit<LeadInsert, 'updated_at'>): Promise<
       return null;
     }
 
-    const sessionId = localStorage.getItem('session_id');
+    const sessionId = localStorage.getItem('currentSessionId');
 
     const { data: lead, error } = await supabase
       .from('map_leads')
       .insert({
         ...data,
         status: data.status || 'pending',
-        event_data: data.event_data ? JSON.stringify(data.event_data) : null,
+        event_data: data.event_data || null,
+        metadata: data.metadata || {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         session_id: sessionId
@@ -55,10 +30,16 @@ export const createLead = async (data: Omit<LeadInsert, 'updated_at'>): Promise<
       .single();
 
     if (error) {
+      console.error('Failed to create lead:', error);
       await trackError(new Error(`Failed to create lead: ${error.message}`), {
-        category: 'lead',
+        category: ERROR_CATEGORY.LEAD,
         severity: 'high',
-        metadata: { email: data.email, leadType: data.lead_type }
+        metadata: { 
+          email: data.email, 
+          leadType: data.lead_type,
+          sessionId,
+          error: error.message
+        }
       });
       return null;
     }
@@ -66,7 +47,7 @@ export const createLead = async (data: Omit<LeadInsert, 'updated_at'>): Promise<
     return lead;
   } catch (error) {
     await trackError(error instanceof Error ? error : new Error('Lead creation failed'), {
-      category: 'lead',
+      category: ERROR_CATEGORY.LEAD,
       severity: 'high',
       metadata: { email: data.email, leadType: data.lead_type }
     });
@@ -81,14 +62,15 @@ export const updateLead = async (id: string, updates: Omit<LeadUpdate, 'updated_
       .from('map_leads')
       .update({
         ...updates,
-        event_data: updates.event_data ? JSON.stringify(updates.event_data) : undefined,
+        event_data: updates.event_data ?? null,
+        metadata: updates.metadata ?? {},
         updated_at: new Date().toISOString()
       })
       .eq('id', id);
 
     if (error) {
       await trackError(new Error(`Failed to update lead: ${error.message}`), {
-        category: 'lead',
+        category: ERROR_CATEGORY.LEAD,
         severity: 'high',
         metadata: { leadId: id, updates }
       });
@@ -96,7 +78,7 @@ export const updateLead = async (id: string, updates: Omit<LeadUpdate, 'updated_
     }
   } catch (error) {
     await trackError(error instanceof Error ? error : new Error('Lead update failed'), {
-      category: 'lead',
+      category: ERROR_CATEGORY.LEAD,
       severity: 'high',
       metadata: { leadId: id, updates }
     });
@@ -107,43 +89,56 @@ export const updateLead = async (id: string, updates: Omit<LeadUpdate, 'updated_
 // Find a lead by email
 export const findLeadByEmail = async (email: string): Promise<Lead | null> => {
   try {
-    if (!email) {
-      return null;
-    }
-
     const { data, error } = await supabase
       .from('map_leads')
       .select('*')
-      .ilike('email', email.toLowerCase())
+      .eq('email', email)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // No results found
-        return null;
-      }
       await trackError(new Error(`Failed to find lead: ${error.message}`), {
-        category: 'lead',
-        severity: 'medium',
+        category: ERROR_CATEGORY.LEAD,
+        severity: 'high',
         metadata: { email }
       });
-      throw error;
+      return null;
     }
 
     return data;
   } catch (error) {
-    await trackError(error instanceof Error ? error : new Error('Lead find failed'), {
-      category: 'lead',
-      severity: 'medium',
+    await trackError(error instanceof Error ? error : new Error('Lead lookup failed'), {
+      category: ERROR_CATEGORY.LEAD,
+      severity: 'high',
       metadata: { email }
     });
-    return null; // Return null instead of throwing to make this operation non-blocking
+    return null;
   }
 };
 
 // Associate a lead with a map
 export const associateLeadWithMap = async (leadId: string, mapId: string): Promise<void> => {
-  return updateLead(leadId, { map_id: mapId });
+  try {
+    const { error } = await supabase
+      .from('map_leads')
+      .update({ map_id: mapId })
+      .eq('id', leadId);
+
+    if (error) {
+      await trackError(new Error(`Failed to associate lead with map: ${error.message}`), {
+        category: ERROR_CATEGORY.LEAD,
+        severity: 'high',
+        metadata: { leadId, mapId }
+      });
+      throw error;
+    }
+  } catch (error) {
+    await trackError(error instanceof Error ? error : new Error('Lead-map association failed'), {
+      category: ERROR_CATEGORY.LEAD,
+      severity: 'high',
+      metadata: { leadId, mapId }
+    });
+    throw error;
+  }
 };
 
 // Associate a lead with feedback
@@ -151,56 +146,22 @@ export const associateLeadWithFeedback = async (leadId: string, feedbackId: stri
   try {
     const { error } = await supabase
       .from('map_leads')
-      .update({ feedback_id: feedbackId, updated_at: new Date().toISOString() })
+      .update({ feedback_id: feedbackId })
       .eq('id', leadId);
 
     if (error) {
       await trackError(new Error(`Failed to associate lead with feedback: ${error.message}`), {
-        category: 'lead',
-        severity: 'medium',
+        category: ERROR_CATEGORY.LEAD,
+        severity: 'high',
         metadata: { leadId, feedbackId }
       });
-      // Don't throw, just log the error
+      throw error;
     }
   } catch (error) {
-    await trackError(error instanceof Error ? error : new Error('Lead association failed'), {
-      category: 'lead',
-      severity: 'medium',
+    await trackError(error instanceof Error ? error : new Error('Lead-feedback association failed'), {
+      category: ERROR_CATEGORY.LEAD,
+      severity: 'high',
       metadata: { leadId, feedbackId }
-    });
-    // Don't throw, just log the error
-  }
-};
-
-// Track a lead interaction
-export const trackLeadInteraction = async (
-  email: string,
-  interactionType: string,
-  event_data: Record<string, any> = {}
-): Promise<void> => {
-  try {
-    const lead = await findLeadByEmail(email);
-  
-    if (lead) {
-      const updatedEventData = {
-        ...lead.event_data,
-        interactions: [
-          ...(lead.event_data?.interactions || []),
-          {
-            type: interactionType,
-            timestamp: new Date().toISOString(),
-            ...event_data
-          }
-        ]
-      };
-
-      await updateLead(lead.id!, { event_data: updatedEventData });
-    }
-  } catch (error) {
-    await trackError(error instanceof Error ? error : new Error('Lead interaction tracking failed'), {
-      category: 'lead',
-      severity: 'medium',
-      metadata: { email, interactionType, event_data }
     });
     throw error;
   }
@@ -209,58 +170,57 @@ export const trackLeadInteraction = async (
 // Get all leads
 export const getLeads = async (): Promise<Lead[]> => {
   try {
-    const { data: leads, error } = await supabase
+    const { data, error } = await supabase
       .from('map_leads')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      await trackError(new Error(`Failed to fetch leads: ${error.message}`), {
-        category: 'lead',
+      await trackError(new Error(`Failed to get leads: ${error.message}`), {
+        category: ERROR_CATEGORY.LEAD,
         severity: 'high',
-        metadata: { error: error.message }
+        metadata: {}
       });
-      throw error;
+      return [];
     }
 
-    return leads;
+    return data || [];
   } catch (error) {
-    console.error('Error fetching leads:', error);
-    await trackError(error instanceof Error ? error : new Error('Failed to fetch leads'), {
-      category: 'lead',
+    await trackError(error instanceof Error ? error : new Error('Get leads failed'), {
+      category: ERROR_CATEGORY.LEAD,
       severity: 'high',
-      metadata: { error: error.message }
+      metadata: {}
     });
-    throw error;
+    return [];
   }
 };
 
 // Get leads by session ID
 export const getLeadsBySession = async (sessionId: string): Promise<Lead[]> => {
   try {
-    const { data: leads, error } = await supabase
+    const { data, error } = await supabase
       .from('map_leads')
       .select('*')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      await trackError(new Error(`Failed to fetch leads by session: ${error.message}`), {
-        category: 'lead',
+      await trackError(new Error(`Failed to get leads by session: ${error.message}`), {
+        category: ERROR_CATEGORY.LEAD,
         severity: 'high',
-        metadata: { sessionId, error: error.message }
+        metadata: { sessionId }
       });
-      throw error;
+      return [];
     }
 
-    return leads;
+    return data || [];
   } catch (error) {
-    console.error('Error fetching leads by session:', error);
-    await trackError(error instanceof Error ? error : new Error('Failed to fetch leads by session'), {
-      category: 'lead',
+    const err = error instanceof Error ? error : new Error('Get leads by session failed');
+    await trackError(err, {
+      category: ERROR_CATEGORY.LEAD,
       severity: 'high',
-      metadata: { sessionId, error: error.message }
+      metadata: { sessionId }
     });
-    throw error;
+    return [];
   }
 };
